@@ -32,8 +32,9 @@
      justo ao texto (2cqw ≈ 3.8vh lateral, 2vh vertical). */
   #text.box-on{background:rgba(0,0,0,var(--box-bg,.45));
     /* Player: radius folha clamp(14px,2.4vmin,32px) 0, borda 0.2vmin e
-       sombra suave. Padding mínimo — caixa abraça o texto (vmin). */
-    padding:1.6vmin 1.8vmin;
+       sombra suave. Padding apertado — caixa abraça o texto (vmin);
+       WT-5f: menor ainda (Rafael 02/09) p/ versículo curto caber em linha. */
+    padding:.9vmin 1.2vmin;
     border-radius:2.4vmin 0 2.4vmin 0;
     border:var(--box-border,.2vmin solid rgba(255,255,255,.25));
     box-shadow:0 10px 30px rgba(0,0,0,.4)}
@@ -46,10 +47,13 @@
   #text.box-off{background:none;padding:0;border:none;box-shadow:none}
 
   #footer{position:fixed;bottom:4vh;left:0;right:0;text-align:center;
-    font-size:2.6vh;font-weight:300;opacity:.7}
-  /* F3.3m: referência da passagem destacada + versão ao lado */
-  #footer .ref{font-weight:var(--ref-weight,600);color:var(--ref-color,#FCCE02)}
-  #footer .ver{font-weight:300;opacity:.65;margin-left:1.2vh;font-size:.85em}
+    font-size:2.6vh;font-weight:300;opacity:1;letter-spacing:.02em}
+  /* F3.3m: referência da passagem destacada + versão ao lado.
+     WT-5f paridade popup: MAIÚSCULAS + letter-spacing + sem opacidade. */
+  #footer .ref{font-weight:var(--ref-weight,600);color:var(--ref-color,#FCCE02);
+    text-transform:uppercase;letter-spacing:.02em}
+  #footer .ver{font-weight:300;opacity:.65;margin-left:1.2vh;font-size:.85em;
+    text-transform:none;letter-spacing:0}
   #idle{position:fixed;top:0;left:0;right:0;bottom:0;z-index:10;
     text-align:center;transition:opacity .5s}
   #idleCenter{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
@@ -156,7 +160,7 @@
 <p id="idleVer" style="position:fixed;right:3vh;bottom:3.2vh;margin:0;z-index:9999;
   font-size:1.45vh;font-weight:500;letter-spacing:.11vh;opacity:.88;
   font-family:inherit;color:#fff;text-shadow:0 1px 4px #000;
-  padding:.45vh .8vh;background:rgba(0,0,0,.30);pointer-events:none">PIANO LouvorJA Palco · receiver v0.1.52</p>
+  padding:.45vh .8vh;background:rgba(0,0,0,.30);pointer-events:none">PIANO LouvorJA Palco · receiver v0.1.54</p>
 <audio id="audio" preload="auto"></audio>
 <script>
 //---------------------------------------------------------------------
@@ -2471,7 +2475,7 @@ window.addEventListener('unhandledrejection',function(ev){
 const $=id=>document.getElementById(id);
 const qs=new URLSearchParams(location.search);
 // F3.3q: versão no idle (canto inferior direito) — ?v= override ou padrão.
-window.__PALCO_APPV__=window.__PALCO_APPV__||'0.1.52';
+window.__PALCO_APPV__=window.__PALCO_APPV__||'0.1.54';
 (function(){var el=$('idleVer');if(!el)return;var qv=qs.get('v')||window.__PALCO_APPV__||'';if(qv){el.textContent='PIANO LouvorJA Palco · receiver v'+qv;return}fetch('appinfo.json').then(function(r){return r.json()}).then(function(j){el.textContent='PIANO LouvorJA Palco · receiver v'+(j.version||'?')}).catch(function(){fetch('config.xml').then(function(r){return r.text()}).then(function(t){var m2=t.match(/version="([^"]+)"/);el.textContent='PIANO LouvorJA Palco · receiver v'+(m2?m2[1]:'?')}).catch(function(){el.textContent='PIANO LouvorJA Palco'})})})()
 // webOS: ares-launch -p '{"host":"..."}' chega em PalmSystem.launchParams,
 // NÃO na query string. Merge dos dois (query string tem prioridade).
@@ -2490,6 +2494,10 @@ function proxyUrl(original){
   // Sender/popup legado pode mandar barra codificada (%2F) — decodifica
   // caminho antes de qualquer comparação/use (404 silencioso caso contrário).
   try{ original=decodeURIComponent(original) }catch(e){}
+  // WT-5f cloud: no modo relay a TV carrega DIRETO da rede do operador web
+  // (a URL vem absoluta, ex. http://192.168.x.x:5173/...). O proxy :7080 é
+  // do sender APK — se não está rodando, 502 e bg nunca carrega.
+  if(cloudMode)return original;
   // Qualquer porta do MESMO sender é local: 7080 (Principal), 7082 (TV 2),
   // 7084... Antes só aceitava :7080; bg vindo de slot :7082 era proxyado
   // de volta e falhava → receiver caía no bg-12 (caso real 26/08).
@@ -3053,11 +3061,61 @@ function handle(m){
         // Auto-fit: reduz a fonte até o texto caber na altura útil (76vh) —
         // mesma passagem de linhas do popup (frase em 2 linhas lá, 2 aqui).
         t.style.transform='translate(-50%,-50%)';
+        // WT-5f bíblia: alinhamentos do palco (paridade popup). Só o operador
+        // manda; sem os campos, mantém o centro padrão (C4).
+        // #text é display:table (shrink-to-fit): text-align NÃO tem efeito
+        // visual na caixa — o alinhamento é feito REPOSICIONANDO a caixa.
+        (function(){
+          var h=m.textAlign||'center', v=m.textVerticalAlign||'middle';
+          var pad=(typeof m.padding==='number')?m.padding:120;
+          // Paridade popup: a CAIXA fica centralizada com largura total (o
+          // popup usa width:100% max-width) e só o TEXTO dentro alinha.
+          // reset sempre (mensagem nova pode trocar o alinhamento)
+          t.style.left='50%'; t.style.right='auto';
+          t.style.top='50%'; t.style.bottom='auto';
+          // Paridade popup: stage tem padding 6vmin de cada lado.
+          // 92vw era ~22px menor em 1920 e mudava a quebra (TV=4, popup=3).
+          t.style.maxWidth='calc(100vw - 12vmin)';
+          t.style.width='calc(100vw - 12vmin)';
+          t.style.textAlign=h;
+          // Bíblia no popup: line-height 1.45 e sem letter-spacing. O CSS
+          // base do receiver (.03em/1.25) fazia a mesma passagem quebrar
+          // diferente. Só aplica quando há referência bíblica.
+          if(m.footerRef){t.style.lineHeight='1.45';t.style.letterSpacing='0'}
+          else{t.style.lineHeight='';t.style.letterSpacing=''}
+          // WT-5f: capitalização do versículo (paridade popup)
+          if(m.textTransform){t.style.textTransform=m.textTransform}
+          else{t.style.textTransform='none'}
+          var padV=(pad/10.8)+'vh';
+          // Rodapé (referência) fica em bottom:4vh (~7vh de altura): o texto
+          // NUNCA pode descer até ele — quando vAlign=bottom, para ACIMA.
+          var minBottom=12;
+          if(v==='bottom'){t.style.top='auto'; t.style.bottom=(Math.max(pad/10.8,minBottom))+'vh'; t.style.transform='translate(-50%,0)'}
+          else if(v==='top'){t.style.top=padV; t.style.transform='translate(-50%,0)'}
+          else{t.style.transform='translate(-50%,-50%)'}
+        })();
         requestAnimationFrame(function(){
+          // WT-5f paridade popup: auto-fit mede scrollHeight vs área útil
+          // (86% do palco) e reduz até caber — MESMO algoritmo do popup
+          // (applyFit/fitScale), não só altura total em 76vh.
           var base=parseFloat(getComputedStyle(t).fontSize)||1;
+          var maxH=innerHeight*0.86;
           var fit=base, i=0;
-          while(i<20 && (t.offsetHeight>innerHeight*0.76) && fit>10){
+          while(i<30 && (t.scrollHeight>maxH) && fit>10){
             fit*=0.94; t.style.fontSize=fit+'px'; i++;
+          }
+          // WT-5f paridade popup: a referência fica ANCORADA na caixinha do
+          // texto (abaixo dela, mesmo alinhamento horizontal), não no rodapé
+          // da tela. Gap 1.4vmin como no popup.
+          var f=$('footer');
+          if(f && m.footerRef && m.textVerticalAlign){
+            var r=t.getBoundingClientRect();
+            var gap=Math.round(innerHeight*0.014);
+            f.style.left=r.left+'px';
+            f.style.right='auto';
+            f.style.width=r.width+'px';
+            f.style.top=Math.min(r.bottom+gap, innerHeight-f.offsetHeight-8)+'px';
+            f.style.bottom='auto';
           }
         });
       }
@@ -3076,6 +3134,16 @@ function handle(m){
       }
       // F3.3m: footer com referência destacada + versão
       {const f=$('footer');
+        // WT-5f: footer segue o alinhamento do palco (paridade popup — a
+        // referência fica dentro do conteúdo lá, alinhada com o texto).
+        // padding 4vw = mesma borda da caixa de texto (92vw centrada).
+        if(m.textAlign){f.style.textAlign=m.textAlign;f.style.padding='0 4vw';f.style.boxSizing='border-box'}
+        else{f.style.textAlign='center';f.style.padding='0'}
+        // Default: rodapé da tela (8vh p/ sair da área do texto). O rAF do
+        // auto-fit reposiciona PERTO da caixinha quando há footerRef (abaixo).
+        f.style.left='0'; f.style.right='0'; f.style.width='auto';
+        f.style.top='auto';
+        f.style.bottom=(m.footerRef?'8vh':'4vh');
         if(m.footerRef){
           f.innerHTML=`<span class="ref" style="--ref-color:${m.footerColor||'#FCCE02'};--ref-weight:${m.footerWeight||600}">${m.footerRef}</span>`+
             (m.footerVersion?`<span class="ver">${m.footerVersion}</span>`:'');
@@ -3083,6 +3151,9 @@ function handle(m){
           f.textContent=m.footer||'';
         }
       }
+      // Label de versão some durante projection com referência (colidia no
+      // canto inferior direito — print 02/09 Rafael).
+      {const iv=$('idleVer');if(iv)iv.style.display=m.footerRef?'none':''}
       break;
     case 'bgPalco':
       // BG permanente do palco (idle) — personalização, não da música

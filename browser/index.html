@@ -12,9 +12,10 @@ $('code').value=code;
 // por clique, por isso o botão fica discreto no canto do receiver.
 async function detectCurrentScreen(){const out=$('screenInfo');if(!window.getScreenDetails){out.textContent='Tela: detecção indisponível neste navegador';return}try{const d=await window.getScreenDetails();const s=d.currentScreen||d.screens.find(x=>x.isPrimary)||window.screen;const label=s.label||'Monitor atual';out.textContent=`${label} · ${s.width}×${s.height}${s.isPrimary?' · Principal':''}`}catch{out.textContent='Tela: permissão não concedida'}}
 $('screenInfo').onclick=detectCurrentScreen;
-// "+ Nova tela": janela nova do receiver, mesma sessão. Popup remanescente
-// (small) já maximizada — usuário só arrasta pro próximo monitor. Um clique.
-$('newScreen').onclick=()=>{window.open(location.href,'_blank','popup=yes,width=screen.availWidth,height=screen.availHeight')};
+// "+ Nova tela": janela nova do receiver, MESMA sessão, PRÓXIMO slot
+// (a conexão incrementa o slot salvo). Popup maximizada — usuário arrasta
+// pro próximo monitor. Um clique, zero terminal.
+$('newScreen').onclick=()=>{const u=new URL(location.href);u.searchParams.delete('slot');window.open(u.href,'_blank','popup=yes,width=screen.availWidth,height=screen.availHeight')};
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 // Instalação PWA: captura o prompt do Chrome e oferece botão explícito.
 // O Chrome só emite beforeinstallprompt quando QUALIFICA (HTTPS+manifest+SW);
@@ -31,7 +32,15 @@ function setStatus(s,on=false){$('status').textContent=s;$('dot').classList.togg
 function applyStage(m){const s=$('stage'),text=$('text'),footer=$('footer');const vw=n=>typeof n==='number'?(n/19.2)+'vw':'';text.style.fontSize=vw(m.fontSize)||'';text.style.fontWeight=m.fontWeight||'';text.style.color=m.textColor||'#fff';text.style.textAlign=m.textAlign||'center';text.style.textTransform=m.textTransform||'none';text.style.textShadow=m.textShadow===false?'none':`0 ${vw(m.shadowBlur)||'3px'} ${vw((m.shadowBlur||2)*3)||'10px'} rgba(0,0,0,${m.shadowIntensity??.8})`;text.style.background=m.textBox?'rgba(0,0,0,'+(m.boxOpacity??.45)+')':'transparent';text.style.border=m.textBox&&m.boxBorder?'1px solid rgba(255,255,255,.25)':'0';text.style.padding=m.textBox?'0.35em 0.55em':'';text.style.borderRadius=m.textBox?'clamp(14px,2.4vmin,32px) 0 clamp(14px,2.4vmin,32px) 0':'';footer.style.color=m.footerRefColor||m.footerColor||'#fff';footer.style.fontWeight=m.footerWeight||'';footer.style.textAlign=m.textAlign||'center';s.style.justifyContent=({top:'flex-start',bottom:'flex-end'}[m.textVerticalAlign]||'center');s.style.backgroundColor=m.backgroundColor||'#000';s.style.backgroundImage=m.background?'url("'+String(m.background).replace(/"/g,'%22')+'")':'none'}
 function render(m){if(m.v!==1&&m.v!==2)return;const idle=$('idleBrand');switch(m.type){case "projection":idle.classList.add('hidden');applyStage(m);$('text').className='';$('text').innerHTML=m.text||'';$('footer').textContent=m.footerRef||m.footer||'';break;case'idle':idle.classList.remove('hidden');$('text').className='idle';$('text').textContent=m.msg||'Aguardando conteúdo…';$('footer').textContent='';break;case'timer':idle.classList.add('hidden');applyStage(m);$('text').className='';$('text').textContent=m.text||m.value||'';break;case'youare':$('connected').textContent=m.label||('Monitor '+(m.slot??''));break;case'audio':case'video':console.debug('cloud receiver media not implemented',m.type);break}}
 async function connect(){manual=true;code=$('code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');$('code').value=code;if(code.length!==6){setStatus('Código inválido — use 6 caracteres');return}localStorage.setItem('louvorja.palco.code',code);if(ws)ws.close();setStatus('buscando sessão…');try{const base=api.replace(/^ws/,'http');const r=await fetch(base+`/sessions/${code}/token`);if(!r.ok)throw Error('sessão não encontrada');const {token}=await r.json();open(token)}catch(e){setStatus(e.message);schedule()}}
-function open(token){setStatus('conectando…');ws=new WebSocket(api+'/relay/'+code+'?token='+encodeURIComponent(token)+'&role=receiver');ws.onopen=()=>{retry=1000;manual=false;setStatus('conectado',true);$('setup').classList.add('hidden');$('stage').classList.remove('hidden');$('connected').textContent=code;showInstallOnStage()};ws.onmessage=e=>{try{render(JSON.parse(e.data))}catch{}};ws.onclose=e=>{if(e.code===4404){setStatus('sessão inválida');return}setStatus('desconectado — reconectando…');schedule()};ws.onerror=()=>setStatus('erro de conexão')}
+function open(token){setStatus('conectando…');
+// WT-6A: cada janela PWA declara um slot lógico (Monitor N). A 1ª fica com
+// o slot salvo (persistente) ou 1; "+ Nova tela" incrementa — o pareamento
+// na tela certa é automático, sem terminal e sem digitar nada.
+let slot=Number(params.get('slot'))||0;
+if(!slot){try{slot=Number(localStorage.getItem('louvorja.palco.slot'))||1}catch{slot=1}}
+try{localStorage.setItem('louvorja.palco.slot',String(slot+1))}catch{}
+const wsUrl=api+'/relay/'+code+'?token='+encodeURIComponent(token)+'&role=receiver&slot='+slot+'&cid='+encodeURIComponent('rcv-'+slot+'-'+Math.random().toString(36).slice(2,8));
+ws=new WebSocket(wsUrl);ws.onopen=()=>{retry=1000;manual=false;setStatus('conectado',true);$('setup').classList.add('hidden');$('stage').classList.remove('hidden');$('connected').textContent=code+' · Monitor '+slot;showInstallOnStage()};ws.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.to&&m.to!=='slot-'+slot)return;render(m)}catch{}};ws.onclose=e=>{if(e.code===4404){setStatus('sessão inválida');return}setStatus('desconectado — reconectando…');schedule()};ws.onerror=()=>setStatus('erro de conexão')}
 function schedule(){if(manual)return;setTimeout(()=>{if(code)connect()},retry);retry=Math.min(retry*2,10000)}
 // Fullscreen no primeiro gesto: Chromium só aceita requestFullscreen dentro
 // de um clique/tecla NESTA janela. Um toque em qualquer lugar da projeção
