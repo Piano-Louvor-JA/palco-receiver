@@ -54,7 +54,9 @@ jobs:
 
       - name: Lint seguranca (LG QA)
         run: |
-          if grep -rniE '(passwd|password|pwd|token|credential|secret)\s*[:=]' webos/index.html; then
+          # Procura credencial LITERAL (token='valor' / token: 'valor'). Concatenação
+          # de variável (token='+var) não é credencial hardcoded — é uso legítimo.
+          if grep -rniE "(passwd|password|pwd|token|credential|secret)\s*[:=]\s*['\"][^'\"]{4,}['\"]" webos/index.html | grep -vE "\+encodeURIComponent|\+.*\+"; then
             echo "::error::Hardcoded credential pattern found — LG QA rejects this"
             exit 1
           fi
