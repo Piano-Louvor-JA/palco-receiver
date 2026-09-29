@@ -1,8 +1,8 @@
-<?xml version="1.0.1" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <widget xmlns="http://www.w3.org/ns/widgets"
         xmlns:tizen="http://tizen.org/ns/widgets"
         id="http://pianolouvorja.com.br/palco"
-        version="1.0.4"
+        version="1.0.6"
         viewmodes="fullscreen"
         width="1920" height="1080">
 
