@@ -2,7 +2,7 @@
 <widget xmlns="http://www.w3.org/ns/widgets"
         xmlns:tizen="http://tizen.org/ns/widgets"
         id="http://pianolouvorja.com.br/palco"
-        version="1.0.5"
+        version="1.0.6"
         viewmodes="fullscreen"
         width="1920" height="1080">
 
