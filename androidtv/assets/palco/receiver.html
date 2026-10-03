@@ -1,6 +1,22 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<script>
+/* X-Client-Platform (padrao da org): identifica o palco na telemetria da API */
+(function(){
+  var MAP={webos:'palco-webos',tizen:'palco-tizen',androidtv:'palco-androidtv',browser:'palco-browser'};
+  var dir=(location.pathname.match(/(webos|tizen|androidtv|browser)/i)||[])[1]||'browser';
+  var platform=MAP[dir.toLowerCase()]||'palco-browser';
+  var of=window.fetch;
+  if(of){window.fetch=function(i,init){try{
+    var url=(typeof i==='string')?i:(i&&i.url)||'';
+    if(!/^https?:/i.test(url))return of(i,init);
+    var h=new Headers((init&&init.headers)||(i&&i.headers)||undefined);
+    if(!h.has('X-Client-Platform'))h.set('X-Client-Platform',platform);
+    return of(i,Object.assign({},init,{headers:h}));
+  }catch(e){return of(i,init)}};}
+})();
+</script>
 <meta charset="utf-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
