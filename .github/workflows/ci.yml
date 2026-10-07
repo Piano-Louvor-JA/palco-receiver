@@ -16,6 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Paridade receiver (webos vs androidtv vs tizen) + contrato de protocolo
+        run: node --test tests/parity-protocol.test.mjs
+
       - name: Paridade receiver (webos vs androidtv)
         run: |
           if ! diff -q webos/index.html androidtv/assets/palco/receiver.html; then
