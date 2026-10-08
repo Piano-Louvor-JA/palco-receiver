@@ -2504,7 +2504,8 @@ var qrcode = function() {
 </script>
 <script>
 function dlog(m1,m2,m3){try{console.log('[P]',m1,m2!==undefined?String(m2):'',m3!==undefined?String(m3):'')}catch(e){}}
-// window.onerror → visível no DevTools e reportado ao sender (debug remoto)
+// window.onerror → visível no DevTools, reportado ao sender e ao Glitchtip
+// (se ?telemetry_dsn= presente; fila persistente em localStorage)
 window.onerror=function(msg,src,line,col){
   try{sendEvent({v:2,type:'error',code:'receiver_js',message:String(msg).slice(0,200),line:line,col:col})}catch(e){}
   try{ if(window.reportPalcoError) window.reportPalcoError(new Error(String(msg)),{kind:'receiver_js',src:src,line:line,col:col}) }catch(e){}
