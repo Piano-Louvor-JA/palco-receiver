@@ -6,6 +6,46 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>LouvorJA Palco</title>
+<script id="palco-telemetry">
+// Telemetria de erros → Glitchtip self-hosted. DSN via querystring ?telemetry_dsn=
+// (a URL do receiver já carrega host/código do launcher — mesmo canal, zero config nova).
+// Sem DSN: zero rede, zero fila. Com DSN: enfileira em localStorage e envia via
+// XHR síncrono-free; sender offline não perde o erro (retry a cada novo erro).
+(function(){
+  try{
+    var qs=new URLSearchParams(location.search);
+    var dsn=qs.get('telemetry_dsn');
+    if(!dsn) return;
+    var KEY='palco_telemetry_queue';
+    var MAXQ=25;
+    function queue(ev){
+      var q=[]; try{q=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){}
+      q.push(ev); if(q.length>MAXQ)q=q.slice(-MAXQ);
+      try{localStorage.setItem(KEY,JSON.stringify(q))}catch(e){}
+      return q;
+    }
+    function send(q){
+      var body=JSON.stringify({events:q});
+      try{
+        var x=new XMLHttpRequest();
+        x.open('POST',dsn.replace(/\/$/,'')+'/store/envelope?glitchtip_key='+dsn.split('//')[1].split('@')[0],true);
+        x.setRequestHeader('Content-Type','application/json');
+        x.onload=function(){ if(x.status===200){try{localStorage.removeItem(KEY)}catch(e){}} };
+        x.send(body);
+      }catch(e){}
+    }
+    window.reportPalcoError=function(err,ctx){
+      var q=queue({
+        ts:new Date().toISOString(),
+        message:String((err&&err.message)||err||'erro').slice(0,200),
+        stack:String((err&&err.stack)||'').slice(0,600),
+        ctx:ctx||{}
+      });
+      send(q);
+    };
+  }catch(e){}
+})();
+</script>
 <style>
   html,body{margin:0;height:100%;overflow:hidden;background:#0A0E1A;
     font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#fff}
@@ -2467,10 +2507,12 @@ function dlog(m1,m2,m3){try{console.log('[P]',m1,m2!==undefined?String(m2):'',m3
 // window.onerror → visível no DevTools e reportado ao sender (debug remoto)
 window.onerror=function(msg,src,line,col){
   try{sendEvent({v:2,type:'error',code:'receiver_js',message:String(msg).slice(0,200),line:line,col:col})}catch(e){}
+  try{ if(window.reportPalcoError) window.reportPalcoError(new Error(String(msg)),{kind:'receiver_js',src:src,line:line,col:col}) }catch(e){}
   return false;
 };
 window.addEventListener('unhandledrejection',function(ev){
   try{sendEvent({v:2,type:'error',code:'receiver_promise',message:String(ev.reason&&ev.reason.message||ev.reason).slice(0,200)})}catch(e){}
+  try{ if(window.reportPalcoError) window.reportPalcoError(new Error(String(ev.reason&&ev.reason.message||ev.reason)),{kind:'receiver_promise'}) }catch(e){}
 });
 const $=id=>document.getElementById(id);
 const qs=new URLSearchParams(location.search);

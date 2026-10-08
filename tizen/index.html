@@ -6,6 +6,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>LouvorJA Palco</title>
+<script id="palco-telemetry">(function(){try{var q=new URLSearchParams(location.search),d=q.get('telemetry_dsn');if(!d)return;var k='palco_telemetry_queue';window.reportPalcoError=function(e,c){var a=[];try{a=JSON.parse(localStorage.getItem(k)||'[]')}catch(x){}a.push({ts:new Date().toISOString(),message:String(e&&e.message||e||'erro').slice(0,200),stack:String(e&&e.stack||'').slice(0,600),ctx:c||{}});if(a.length>25)a=a.slice(-25);try{localStorage.setItem(k,JSON.stringify(a));var x=new XMLHttpRequest();x.open('POST',d,true);x.setRequestHeader('Content-Type','application/json');x.send(JSON.stringify({events:a}))}catch(x){}}}catch(x){}})();</script>
 <style>
   html,body{margin:0;height:100%;overflow:hidden;background:#0A0E1A;
     font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#fff}
