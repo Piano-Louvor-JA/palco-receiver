@@ -80,6 +80,8 @@ jobs:
   webos-package:
     name: webOS IPK
     needs: validate
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -113,6 +115,8 @@ jobs:
   androidtv-package:
     name: Android TV APK
     needs: validate
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -159,6 +163,8 @@ jobs:
   tizen-package:
     name: Tizen WGT
     needs: validate
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
