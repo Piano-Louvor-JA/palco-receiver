@@ -21,7 +21,7 @@ for (const [name, html] of [['webos', webos], ['androidtv', androidtv], ['tizen'
     // WS local (IP:porta) + modo cloud (relay da API)
     assert.match(html, /new WebSocket/, 'WebSocket ausente')
     assert.match(html, /\/palco['"]/, 'rota WS local ausente')
-    assert.match(html, /sessions\/:code\/token/, 'rota de token cloud ausente')
+    assert.match(html, /sessions\/'\+code\+'\/token/, 'rota de token cloud ausente')
     assert.match(html, /\/v1\/palco/, 'relay WS ausente')
     // reconexão com backoff
     assert.match(html, /Math\.pow\(2,tries/, 'backoff de reconexão ausente')
