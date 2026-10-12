@@ -1,6 +1,28 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<script>
+/* X-Client-Platform: telemetria da API. IPK/WGT/APK nao trazem a pasta no path. */
+(function(){
+  var ua=navigator.userAgent||'';
+  var path=location.pathname||'';
+  var platform='palco-browser';
+  if(window.PalmSystem||window.webOS||window.webOSSystem||/Web0S|webOS/i.test(ua)||/\/webos(\/|$)/i.test(path))platform='palco-webos';
+  else if(window.tizen||/Tizen/i.test(ua)||/\/tizen(\/|$)/i.test(path))platform='palco-tizen';
+  else if(/Android/i.test(ua)||/\/androidtv(\/|$)/i.test(path))platform='palco-androidtv';
+  var of=window.fetch;
+  if(!of)return;
+  window.fetch=function(i,init){
+    try{
+      var url=(typeof i==='string')?i:((i&&i.url)||'');
+      if(url.indexOf('/v1/palco')===-1)return of(i,init);
+      var h=new Headers((init&&init.headers)||(i&&i.headers)||undefined);
+      if(!h.has('X-Client-Platform'))h.set('X-Client-Platform',platform);
+      return of(i,Object.assign({},init,{headers:h}));
+    }catch(e){return of(i,init)}
+  };
+})();
+</script>
 <meta charset="utf-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">

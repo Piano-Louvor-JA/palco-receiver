@@ -1,5 +1,24 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#000000"><link rel="manifest" href="./manifest.webmanifest"><title>LouvorJA Palco Receiver</title><script id="palco-telemetry">
+<html lang="pt-BR"><head>
+<script>
+/* X-Client-Platform: este arquivo e o alvo browser. Header so na API. */
+(function(){
+  var platform='palco-browser';
+  var of=window.fetch;
+  if(!of)return;
+  window.fetch=function(i,init){
+    try{
+      var url=(typeof i==='string')?i:((i&&i.url)||'');
+      if(url.indexOf('/v1/palco')===-1)return of(i,init);
+      var h=new Headers((init&&init.headers)||(i&&i.headers)||undefined);
+      if(!h.has('X-Client-Platform'))h.set('X-Client-Platform',platform);
+      return of(i,Object.assign({},init,{headers:h}));
+    }catch(e){return of(i,init)}
+  };
+})();
+</script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#000000"><link rel="manifest" href="./manifest.webmanifest"><title>LouvorJA Palco Receiver</title>
+<script id="palco-telemetry">
 // Telemetria de erros → Glitchtip self-hosted. DSN via querystring ?telemetry_dsn=
 // (a URL do receiver já carrega host/código do launcher — mesmo canal, zero config nova).
 // Sem DSN: zero rede, zero fila. Com DSN: enfileira em localStorage e envia via
