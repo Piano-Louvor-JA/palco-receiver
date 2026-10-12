@@ -103,7 +103,7 @@ jobs:
           echo "IPK_FILE=$IPK" >> $GITHUB_ENV
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.IPK_FILE }}
           path: webos/*.ipk
@@ -151,7 +151,7 @@ jobs:
              build/app/outputs/flutter-apk/PalcoLouvorJA-AndroidTV-${VERSION}.apk
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: PalcoLouvorJA-AndroidTV
           path: androidtv/build/app/outputs/flutter-apk/PalcoLouvorJA-AndroidTV-*.apk
@@ -199,7 +199,7 @@ jobs:
           zip -qr "../com.piano.louvorja.palco_${VERSION}.wgt" index.html config.xml logo-piano-louvorja.png logo-louvor-ja.svg bg-fallback.png
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: palco-tizen-wgt
           path: com.piano.louvorja.palco_*.wgt
