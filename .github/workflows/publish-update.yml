@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout palco-receiver
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Extrair versão
         id: ver
@@ -45,7 +45,7 @@ jobs:
           fi
 
       - name: Checkout palco-updates gh-pages
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: pianolouvorja/palco-updates
           ref: gh-pages
