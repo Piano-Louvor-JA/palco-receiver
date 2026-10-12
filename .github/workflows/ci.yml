@@ -103,14 +103,14 @@ jobs:
           echo "IPK_FILE=$IPK" >> $GITHUB_ENV
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.IPK_FILE }}
           path: webos/*.ipk
 
       - name: Attach to release (tags)
         if: startsWith(github.ref, 'refs/tags/webos-v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           files: webos/*.ipk
@@ -151,14 +151,14 @@ jobs:
              build/app/outputs/flutter-apk/PalcoLouvorJA-AndroidTV-${VERSION}.apk
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: PalcoLouvorJA-AndroidTV
           path: androidtv/build/app/outputs/flutter-apk/PalcoLouvorJA-AndroidTV-*.apk
 
       - name: Attach to release (tags)
         if: startsWith(github.ref, 'refs/tags/androidtv-v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           files: androidtv/build/app/outputs/flutter-apk/PalcoLouvorJA-AndroidTV-*.apk
@@ -199,14 +199,14 @@ jobs:
           zip -qr "../com.piano.louvorja.palco_${VERSION}.wgt" index.html config.xml logo-piano-louvorja.png logo-louvor-ja.svg bg-fallback.png
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: palco-tizen-wgt
           path: com.piano.louvorja.palco_*.wgt
 
       - name: Attach to release (tags)
         if: startsWith(github.ref, 'refs/tags/tizen-v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           files: com.piano.louvorja.palco_*.wgt
