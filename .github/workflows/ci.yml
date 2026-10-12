@@ -6,13 +6,20 @@ on:
     tags: ['v*', 'webos-v*', 'androidtv-v*', 'tizen-v*']
   pull_request:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# contents:write necessario APENAS nos jobs de package (release upload).
+# validate e lint rodam read-only.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   validate:
     name: Validate receiver
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 
@@ -73,6 +80,8 @@ jobs:
   webos-package:
     name: webOS IPK
     needs: validate
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -106,6 +115,8 @@ jobs:
   androidtv-package:
     name: Android TV APK
     needs: validate
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -152,6 +163,8 @@ jobs:
   tizen-package:
     name: Tizen WGT
     needs: validate
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
