@@ -3,7 +3,8 @@
 App receiver (Palco) para TVs — exibe a projeção enviada pelo app
 PIANO LouvorJA (celular/desktop) via WebSocket próprio. **Não é
 Chromecast/DLNA**: a TV é cliente WS que conecta no sender do operador
-(HTTP :7080 / WS :7081, ou porta do slot em multi-TV).
+(desktop: HTTP :47080 / WS :47081; celular: HTTP :7080 / WS :7081; ou porta
+do slot em multi-TV).
 
 Cada subdiretório tem README próprio com instruções completas de build e
 instalação:
@@ -36,8 +37,10 @@ autoplay-mudo com desmute no 1º gesto, auto-relaunch, splash e identidade.
 ## Arquitetura de conexão (leia antes de debugar)
 
 O **sender** (celular APK ou desktop) é o servidor HTTP+WS. A **TV** é
-cliente que conecta no IP do operador. Portas: HTTP 7080 / WS 7081
-(principal), 7082/7083+ (slots multi-TV). Detalhes, pitfalls de proxy de
+cliente que conecta no IP do operador. Portas do desktop: HTTP 47080 /
+WS 47081 (principal), 47082/47083+ (slots multi-TV). O celular e desktops
+anteriores à troca usam 7080/7081; a busca automática procura as duas.
+Detalhes, pitfalls de proxy de
 mídia, autoplay e sync nas skills internas do projeto.
 
 ## Instalação em TVs Samsung (resumo — detalhe em tizen/README.md)
