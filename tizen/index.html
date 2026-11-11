@@ -2560,15 +2560,15 @@ function proxyUrl(original){
   // caminho antes de qualquer comparação/use (404 silencioso caso contrário).
   try{ original=decodeURIComponent(original) }catch(e){}
   // WT-5f cloud: no modo relay a TV carrega DIRETO da rede do operador web
-  // (a URL vem absoluta, ex. http://192.168.x.x:5173/...). O proxy :7080 é
-  // do sender APK — se não está rodando, 502 e bg nunca carrega.
+  // (a URL vem absoluta, ex. http://192.168.x.x:5173/...). O proxy local é
+  // do sender — se não está rodando, 502 e bg nunca carrega.
   if(cloudMode)return original;
-  // Qualquer porta do MESMO sender é local: 7080 (Principal), 7082 (TV 2),
-  // 7084... Antes só aceitava :7080; bg vindo de slot :7082 era proxyado
-  // de volta e falhava → receiver caía no bg-12 (caso real 26/08).
+  // Qualquer porta do MESMO sender é local: 47080 (Principal), 47082 (TV 2),
+  // 47084... (7080/7082 no APK). Antes só aceitava a principal; bg vindo de
+  // outro slot era proxyado de volta e falhava → bg-12 (caso real 26/08).
   if(original.startsWith('http://'+host+':'))return original;
   if(original.startsWith('http://')||original.startsWith('https://')){
-    return `http://${host}:7080/proxy?url=${encodeURIComponent(original)}`;
+    return `http://${host}:${senderHttpPort()}/proxy?url=${encodeURIComponent(original)}`;
   }
   return original;
 }
@@ -2588,9 +2588,15 @@ function sendEvent(m){try{if(ws&&ws.readyState===1)ws.send(JSON.stringify(m))}ca
 
 // ===== Auto-descoberta (F3.3): acha o sender (APK) na sub-rede =====
 // Prioridade: launchParams/query host > último host válido (localStorage)
-// > scan da sub-rede via GET :7080/status (resposta JSON identifica sender).
+// > scan da sub-rede via GET :47080/status (resposta JSON identifica sender).
+// O APK e os computadores ainda não atualizados seguem na 7080/7081: as duas são procuradas.
+const DEFAULT_WS_PORT='47081';
+const LEGACY_WS_PORT='7081';
 let host=qs.get('host')||localStorage.getItem('palcoHost')||location.hostname||'';
-let port=qs.get('port')||localStorage.getItem('palcoPort')||'7081';
+let port=qs.get('port')||localStorage.getItem('palcoPort')||DEFAULT_WS_PORT;
+// Porta do link é definitiva; a salva pode ser de outro transmissor.
+const portFixed=!!qs.get('port');
+function senderHttpPort(){return (parseInt(port,10)||Number(DEFAULT_WS_PORT))-1}
 
 function probeHttp(ip,httpPort){
   return new Promise(res=>{
@@ -2601,17 +2607,24 @@ function probeHttp(ip,httpPort){
   });
 }
 function probeSender(ip){
-  // Porta digitada pode ser WS (7081) OU HTTP do slot (a UI mostra a HTTP,
-  // ex.: slot 1 = 7082/7083). Tenta a dupla HTTP/WS em ambos os sentidos:
-  // p como HTTP, p-1 (p=WS) e p+1 (p=HTTP→WS=p+1).
-  var p=parseInt(port,10)||7081;
+  // Sem porta no link: a atual, a nova e a antiga, em paralelo; vence a primeira da lista que responder.
+  var tries=[port];
+  if(!portFixed)[DEFAULT_WS_PORT,LEGACY_WS_PORT].forEach(function(p){if(tries.indexOf(p)<0)tries.push(p)});
+  return Promise.all(tries.map(function(p){return probePair(ip,parseInt(p,10)||Number(DEFAULT_WS_PORT))})).then(function(found){
+    for(var i=0;i<found.length;i++)if(found[i])return normalizePort(ip,null,found[i]);
+    return null;
+  });
+}
+function probePair(ip,p){
+  // Porta digitada pode ser WS (47081) OU HTTP do slot (a UI mostra a HTTP,
+  // ex.: slot 1 = 47082/47083). Tenta a dupla HTTP/WS em ambos os sentidos:
+  // p como HTTP, p-1 (p=WS) e p+1 (p=HTTP→WS=p+1). Devolve a porta WS.
   return probeHttp(ip,p).then(function(j){
-    if(j)return normalizePort(ip,j,p+1);        // p era HTTP → WS=p+1
+    if(j)return p+1;                            // p era HTTP → WS=p+1
     return probeHttp(ip,p-1).then(function(j2){
-      if(j2)return normalizePort(ip,j2,p);      // p era WS (HTTP=p-1)
+      if(j2)return p;                           // p era WS (HTTP=p-1)
       return probeHttp(ip,p+1).then(function(j3){
-        if(j3)return normalizePort(ip,j3,p+1);  // p era HTTP, WS=p+1
-        return null;
+        return j3?p+1:null;                     // p era HTTP, WS=p+1
       });
     });
   });
@@ -2845,7 +2858,7 @@ function hideIdle(){$('idle').classList.add('hidden')}
 function coverUrl(cover){
   if(!cover) return null;
   if(cover.startsWith('http://')||cover.startsWith('https://'))return proxyUrl(cover);
-  return proxyUrl('http://'+(host||location.hostname)+':7080/'+cover.replace(/^\/+/,''));
+  return proxyUrl('http://'+(host||location.hostname)+':'+senderHttpPort()+'/'+cover.replace(/^\/+/,''));
 }
 function showNp(title,sub,cover){
   hideIdle();$('text').style.display='none';
@@ -2965,7 +2978,7 @@ function openIpEntry(){
   ipEntry.style.cssText='position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.85);'+
     'display:flex;align-items:center;justify-content:center';
   ipEntry.innerHTML='<div style="text-align:center">'+
-    '<p style="font-size:2.6vh;opacity:.7;margin:0 0 2vh 0">CÓDIGO (6 letras/números) · IP · IP:PORTA — ou SÓ A PORTA (ex.: 7081) para achar o LouvorJA na rede</p>'+
+    '<p style="font-size:2.6vh;opacity:.7;margin:0 0 2vh 0">CÓDIGO (6 letras/números) · IP · IP:PORTA — ou SÓ A PORTA (ex.: 47081) para achar o LouvorJA na rede</p>'+
     '<p id="ipVal" style="font-size:6vh;font-weight:700;letter-spacing:.5vh;margin:0;'+
     'min-height:7vh;border-bottom:.3vh solid #FCCE02;padding:0 4vh"></p>'+
     '<p style="font-size:1.8vh;opacity:.5;margin:2vh 0 0 0">OK conectar · vermelha cancelar · backspace apaga</p></div>';
