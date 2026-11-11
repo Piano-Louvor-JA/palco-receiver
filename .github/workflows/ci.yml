@@ -23,8 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Paridade receiver (webos vs androidtv vs tizen) + contrato de protocolo
-        run: node --test tests/parity-protocol.test.mjs
+      - name: Paridade receiver (webos vs androidtv vs tizen) + contrato de protocolo + portas do sender
+        run: node --test tests/parity-protocol.test.mjs tests/sender-port.test.mjs
 
       - name: Paridade receiver (webos vs androidtv)
         run: |

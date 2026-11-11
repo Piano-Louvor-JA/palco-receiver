@@ -41,10 +41,11 @@ webos/
 
 ## Conectar ao sender (celular/desktop PIANO)
 
-A TV é **cliente** WebSocket: conecta no celular (sender HTTP :7080 /
-WS :7081). O receiver auto-escaneia a rede (`/status` na /24) — ou use a
-**tecla VERMELHA** do controle pra digitar IP/porta manualmente. Entrada
-só-porta (`7082`) também funciona (slot multi-TV).
+A TV é **cliente** WebSocket: conecta no desktop (HTTP :47080 / WS :47081)
+ou no celular (HTTP :7080 / WS :7081). O receiver auto-escaneia a rede
+(`/status` na /24, nas duas portas) — ou use a **tecla VERMELHA** do
+controle pra digitar IP/porta manualmente. Entrada só-porta (`47082`)
+também funciona (slot multi-TV).
 
 ## Regras críticas do receiver (root causes reais)
 

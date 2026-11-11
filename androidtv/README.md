@@ -56,6 +56,6 @@ adb shell dumpsys package <pkg> | grep -m1 versionName   # evidência por aparel
 ## Conexão
 
 Mesma lógica das outras variantes: o receiver auto-escaneia o sender na
-rede (:7080/status) ou IP/porta manual pela tecla vermelha. Assets do
+rede (`/status` nas portas 47080 e 7080) ou IP/porta manual pela tecla vermelha. Assets do
 receiver vivem canonicamente em `pianolouvorja-flutter/src/assets/palco/`
 e são copiados pra cá no empacotamento — nunca editar só um dos lados.
