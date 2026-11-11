@@ -2564,7 +2564,7 @@ function proxyUrl(original){
   // do sender — se não está rodando, 502 e bg nunca carrega.
   if(cloudMode)return original;
   // Qualquer porta do MESMO sender é local: 47080 (Principal), 47082 (TV 2),
-  // 47084... (7080/7082 no APK). Antes só aceitava a principal; bg vindo de
+  // 47084... (4980/4982 no APK; 7080/7082 no APK antigo). Antes só aceitava a principal; bg vindo de
   // outro slot era proxyado de volta e falhava → bg-12 (caso real 26/08).
   if(original.startsWith('http://'+host+':'))return original;
   if(original.startsWith('http://')||original.startsWith('https://')){
@@ -2589,8 +2589,10 @@ function sendEvent(m){try{if(ws&&ws.readyState===1)ws.send(JSON.stringify(m))}ca
 // ===== Auto-descoberta (F3.3): acha o sender (APK) na sub-rede =====
 // Prioridade: launchParams/query host > último host válido (localStorage)
 // > scan da sub-rede via GET :47080/status (resposta JSON identifica sender).
-// O APK e os computadores ainda não atualizados seguem na 7080/7081: as duas são procuradas.
+// O APK novo usa 4980/4981 (faixa própria, sem conflito com o desktop);
+// APK e computadores ainda não atualizados seguem na 7080/7081: todas são procuradas.
 const DEFAULT_WS_PORT='47081';
+const APK_WS_PORT='4981';
 const LEGACY_WS_PORT='7081';
 let host=qs.get('host')||localStorage.getItem('palcoHost')||location.hostname||'';
 let port=qs.get('port')||localStorage.getItem('palcoPort')||DEFAULT_WS_PORT;
@@ -2607,9 +2609,9 @@ function probeHttp(ip,httpPort){
   });
 }
 function probeSender(ip){
-  // Sem porta no link: a atual, a nova e a antiga, em paralelo; vence a primeira da lista que responder.
+  // Sem porta no link: a atual, a do desktop, a do APK e a antiga, em paralelo; vence a primeira da lista que responder.
   var tries=[port];
-  if(!portFixed)[DEFAULT_WS_PORT,LEGACY_WS_PORT].forEach(function(p){if(tries.indexOf(p)<0)tries.push(p)});
+  if(!portFixed)[DEFAULT_WS_PORT,APK_WS_PORT,LEGACY_WS_PORT].forEach(function(p){if(tries.indexOf(p)<0)tries.push(p)});
   return Promise.all(tries.map(function(p){return probePair(ip,parseInt(p,10)||Number(DEFAULT_WS_PORT))})).then(function(found){
     for(var i=0;i<found.length;i++)if(found[i])return normalizePort(ip,null,found[i]);
     return null;
@@ -2969,8 +2971,42 @@ window.addEventListener('keydown',function(e){
     sendEvent({v:2,type:'remote-key',key:k===37?'prev':'next'});
   }
 },true);
+// ===== Teclas do controle (webOS, Tizen, Android TV) =====
+// webOS/Tizen entregam as coloridas como keyCode 403-406. O WebView do
+// Android TV entrega keyCode 0 com o nome em e.key ("ColorF0Red"...).
+function remoteColor(e){
+  var k=e.keyCode,n=e.key||'';
+  if(k===403||n==='ColorF0Red')return 'red';
+  if(k===404||n==='ColorF1Green')return 'green';
+  if(k===405||n==='ColorF2Yellow')return 'yellow';
+  if(k===406||n==='ColorF3Blue')return 'blue';
+  return '';
+}
+// Caractere que a tecla põe na entrada de IP/código ('' = nenhum).
+// Controle não tem ":" — a AMARELA digita ":" (IP:PORTA).
+var IP_MAX=21; // 255.255.255.255:65535
+function ipKeyChar(e){
+  var k=e.keyCode;
+  if(e.key===':'||remoteColor(e)==='yellow')return ':';
+  if(k>=48&&k<=57)return String(k-48);
+  if(k>=96&&k<=105)return String(k-96);                    // numpad
+  if(k===46||k===190||k===110)return '.';
+  if(k>=65&&k<=90)return String.fromCharCode(k);           // código cloud
+  return '';
+}
+// Tizen só entrega coloridas, dígitos e mídia ao app depois do registerKey.
+// Tecla que o modelo não tem lança erro — registra as outras mesmo assim.
+function registerTizenKeys(){
+  var t=window.tizen&&window.tizen.tvinputdevice;
+  if(!t)return;
+  var names=['ColorF0Red','ColorF1Green','ColorF2Yellow','ColorF3Blue',
+    '0','1','2','3','4','5','6','7','8','9',
+    'MediaPlay','MediaPause','MediaPlayPause','MediaStop','MediaRewind','MediaFastForward'];
+  for(var i=0;i<names.length;i++){try{t.registerKey(names[i])}catch(e){}}
+}
+registerTizenKeys();
 // ===== F3.3u: entrada de IP manual via controle remoto =====
-// Tecla vermelha (403) ou "0" no idle abre overlay pra digitar IP do celular.
+// Tecla vermelha ou "0" no idle abre overlay pra digitar IP do celular.
 var ipEntry=null;
 function openIpEntry(){
   if(ipEntry)return;
@@ -2981,7 +3017,7 @@ function openIpEntry(){
     '<p style="font-size:2.6vh;opacity:.7;margin:0 0 2vh 0">CÓDIGO (6 letras/números) · IP · IP:PORTA — ou SÓ A PORTA (ex.: 47081) para achar o LouvorJA na rede</p>'+
     '<p id="ipVal" style="font-size:6vh;font-weight:700;letter-spacing:.5vh;margin:0;'+
     'min-height:7vh;border-bottom:.3vh solid #FCCE02;padding:0 4vh"></p>'+
-    '<p style="font-size:1.8vh;opacity:.5;margin:2vh 0 0 0">OK conectar · vermelha cancelar · backspace apaga</p></div>';
+    '<p style="font-size:1.8vh;opacity:.5;margin:2vh 0 0 0">OK conectar · amarela digita : · vermelha cancelar · backspace apaga</p></div>';
   document.body.appendChild(ipEntry);
   ipEntry._val='';
   renderIp();
@@ -3033,27 +3069,22 @@ function submitIp(){
 }
 window.addEventListener('keydown',function(e){
   var k=e.keyCode;
+  var color=remoteColor(e);
   if(ipEntry){
     e.preventDefault();e.stopPropagation();
+    var ch=ipKeyChar(e);
     if(k===13||k===4063){submitIp()}                       // OK / Enter
     else if(k===461||k===8||k===463){                      // backspace
       ipEntry._val=ipEntry._val.slice(0,-1);renderIp()}
-    else if(k>=48&&k<=57){                                  // 0-9
-      if(ipEntry._val.length<15){ipEntry._val+=String(k-48);renderIp()}}
-    else if(k>=96&&k<=105){                                 // numpad
-      if(ipEntry._val.length<15){ipEntry._val+=String(k-96);renderIp()}}
-    else if(k===46||k===190||k===110){                      // ponto
-      if(ipEntry._val.length<15){ipEntry._val+='.';renderIp()}}
-    // WT-5d: letras A-Z — código cloud é 6 alfanuméricos. keyCode 65-90.
-    else if(k>=65&&k<=90){
-      if(ipEntry._val.length<15){ipEntry._val+=String.fromCharCode(k);renderIp()}}
-    else if(k===403||k===27){closeIpEntry()}                // vermelha/ESC
+    else if(ch){
+      if(ipEntry._val.length<IP_MAX){ipEntry._val+=ch;renderIp()}}
+    else if(color==='red'||k===27){closeIpEntry()}          // vermelha/ESC
     return;
   }
   // Azul (406): refresh do Palco. Útil quando sender/slot reiniciou ou
   // replay ficou stale — força novo boot, scan e conexão WS sem alterar
   // host/porta persistidos. Vermelho continua reservado a IP/porta manual.
-  if(k===406){
+  if(color==='blue'){
     e.preventDefault();
     try{if(ws)ws.close()}catch(e){}
     location.reload();
@@ -3061,7 +3092,7 @@ window.addEventListener('keydown',function(e){
   }
   // Verde (404): para qualquer mídia local e volta ao idle. O operador da
   // TV recupera a tela sem depender do sender (ex: mídia presa/congelada).
-  if(k===404){
+  if(color==='green'){
     e.preventDefault();
     {const a=$('audio');a.pause();a.removeAttribute('src');a.load();}
     {const v=$('video');v.pause();v.removeAttribute('src');v.style.display='none';v.load();}
@@ -3069,8 +3100,9 @@ window.addEventListener('keydown',function(e){
     showIdle('Aguardando conteúdo…');
     return;
   }
-  // tecla vermelha (403) no idle abre entrada de IP
-  if(k===403&&document.getElementById('idle')&&!document.getElementById('idle').classList.contains('hidden')){
+  // vermelha ou "0" no idle abre entrada de IP (controle sem colorida)
+  var idleEl=document.getElementById('idle');
+  if((color==='red'||k===48||k===96)&&idleEl&&!idleEl.classList.contains('hidden')){
     e.preventDefault();openIpEntry();
   }
 },true);

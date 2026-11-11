@@ -64,6 +64,18 @@ test('acha o celular (APK) ou computador antigo na porta 7080', async () => {
   assert.equal(r.state().port, '7081')
 })
 
+test('acha o celular (APK novo) na porta 4980', async () => {
+  const r = receiver({ open: ['192.168.1.35:4980'] })
+  assert.equal(await r.context.probeSender('192.168.1.35'), '192.168.1.35')
+  assert.equal(r.state().port, '4981')
+})
+
+test('desktop e APK novo na mesma máquina: prefere o desktop', async () => {
+  const r = receiver({ open: ['192.168.1.36:4980', '192.168.1.36:47080'] })
+  await r.context.probeSender('192.168.1.36')
+  assert.equal(r.state().port, '47081')
+})
+
 test('com as duas portas respondendo, prefere a nova', async () => {
   const r = receiver({ open: ['192.168.1.40:7080', '192.168.1.40:47080'] })
   await r.context.probeSender('192.168.1.40')

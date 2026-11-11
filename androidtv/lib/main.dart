@@ -48,6 +48,11 @@ class _ReceiverPageState extends State<ReceiverPage> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      // D-pad só chega ao receiver quando o WebView tem o foco nativo; sem
+      // isso as teclas se perdem até alguém tocar na tela (emulador/TV box).
+      ..setNavigationDelegate(
+        NavigationDelegate(onPageFinished: (_) => _focusWebView()),
+      )
       // loadFlutterAsset é o caminho correto pra assets empacotados no APK
       // (loadFile resolve como http://assets/... → ERR_NAME_NOT_RESOLVED,
       // bug diagnosticado no A03/Android em 2026-08-20).
@@ -82,6 +87,14 @@ class _ReceiverPageState extends State<ReceiverPage> {
     } catch (_) {
       return 'Palco AndroidTV';
     }
+  }
+
+  /// Leva o foco do Flutter ao WebView (platform view), que então pede o
+  /// foco nativo do Android — mesmo efeito do toque na tela.
+  void _focusWebView() {
+    if (!mounted) return;
+    final scope = FocusScope.of(context);
+    if (scope.focusedChild == null) scope.nextFocus();
   }
 
   @override
