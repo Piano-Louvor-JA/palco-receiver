@@ -2585,6 +2585,44 @@ function setStatus(t,err){const s=$('status');s.textContent=t;
   s.className=err?'err':''}
 
 
+// Identifica a TV para o celular (módulo Palco): plataforma, versão e um id
+// estável por aparelho. Nome opcional em localStorage 'palcoName'.
+function palcoPlatform(){
+  var ua=navigator.userAgent||'',path=location.pathname||'';
+  if(window.PalmSystem||window.webOS||window.webOSSystem||/Web0S|webOS/i.test(ua)||/\/webos(\/|$)/i.test(path))return 'webos';
+  if(window.tizen||/Tizen/i.test(ua)||/\/tizen(\/|$)/i.test(path))return 'tizen';
+  if(/Android/i.test(ua)||/\/androidtv(\/|$)/i.test(path))return 'androidtv';
+  return 'browser';
+}
+function palcoId(){
+  try{var id=localStorage.getItem('palcoId');
+    if(!id){id=Date.now().toString(36)+Math.random().toString(36).slice(2,8);localStorage.setItem('palcoId',id)}
+    return id}catch(e){return ''}
+}
+function sendHello(){
+  var el=$('idleVer'),m=el&&el.textContent.match(/v([\d.]+)/);
+  var msg={v:2,type:'hello',role:'tv',platform:palcoPlatform(),id:palcoId()};
+  if(m)msg.version=m[1];
+  try{var n=localStorage.getItem('palcoName');if(n)msg.name=n}catch(e){}
+  sendEvent(msg);
+}
+// Identificar: nome grande por cima de tudo por alguns segundos, para o
+// operador saber qual TV é qual no salão.
+var identifyTimer=null;
+function showIdentify(name,slot){
+  var el=document.getElementById('palcoIdentify');
+  if(!el){el=document.createElement('div');el.id='palcoIdentify';
+    el.style.cssText='position:fixed;inset:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.82);color:#fff;font-family:sans-serif;text-align:center;border:1.2vh solid #f5b301;box-sizing:border-box';
+    document.body.appendChild(el)}
+  el.innerHTML='';
+  var t=document.createElement('div');t.style.cssText='font-size:11vh;font-weight:700;padding:0 4vw';
+  t.textContent=name||'Palco';el.appendChild(t);
+  if(slot){var s=document.createElement('div');s.style.cssText='font-size:4.5vh;opacity:.8;margin-top:2vh';
+    s.textContent=slot;el.appendChild(s)}
+  el.style.display='flex';
+  clearTimeout(identifyTimer);
+  identifyTimer=setTimeout(function(){el.style.display='none'},6000);
+}
 function sendEvent(m){try{if(ws&&ws.readyState===1)ws.send(JSON.stringify(m))}catch(e){}}
 
 // ===== Auto-descoberta (F3.3): acha o sender (APK) na sub-rede =====
@@ -2712,6 +2750,7 @@ function doConnect(){
   setStatus('conectando '+host+':'+port+'…');
   try{ws=new WebSocket('ws://'+host+':'+port+'/palco')}catch(e){retry();return}
   ws.onopen=()=>{tries=0;dlog('WS OPEN '+host);setStatus('● '+host);
+    sendHello();
     if(window.__hideSplash)window.__hideSplash(); // F3.3j: splash sai no connect
     localStorage.setItem('palcoHost',host);
     localStorage.setItem('palcoPort',port)};
@@ -3115,6 +3154,21 @@ function handle(m){
   if(m.v!==1&&m.v!==2)return;
   // Tela de espera sem logo (opção do transmissor, reenviada ao conectar).
   if(m.type==='idleStyle'){document.documentElement.classList.toggle('idle-no-logo',m.hideLogo===true);return;}
+  // Ações por palco (módulo Palco do celular): só este receiver recebe.
+  if(m.type==='identify'){showIdentify(m.name,m.slotLabel);return;}
+  if(m.type==='rename'){
+    var nn=String(m.name||'').trim().slice(0,40);
+    try{if(nn)localStorage.setItem('palcoName',nn);else localStorage.removeItem('palcoName')}catch(e){}
+    sendHello();return;}
+  if(m.type==='reload'){try{if(ws)ws.close()}catch(e){};location.reload();return;}
+  if(m.type==='moveTo'){
+    var np=parseInt(m.port,10);
+    if(np>=1024&&np<=65535&&String(np)!==String(port)){
+      dlog('moveTo porta '+np);
+      port=String(np);try{localStorage.setItem('palcoPort',port)}catch(e){}
+      tries=0;try{if(ws)ws.close()}catch(e){}
+    }
+    return;}
   // HARDENING culto: mídia externa (vídeo/pdf/ppt/áudio da liturgia) viva
   // tem prioridade absoluta no slot. Mensagens de texto/projection não podem
   // renderizar por cima (cross-bleed owner — caso real 28/08: random sobre
