@@ -172,6 +172,8 @@
 <script>
 (function(){
   var s=document.getElementById('splash');
+  // Painel da tela compartilhada (?obsPane=1): sem splash.
+  if(/[?&]obsPane=1(&|$)/.test(location.search)&&s){s.remove();s=null}
   function hide(){if(!s)return;s.style.opacity='0';
     setTimeout(function(){s&&s.remove()},700);s=null}
   setTimeout(hide,2500);
@@ -2543,6 +2545,8 @@ window.addEventListener('unhandledrejection',function(ev){
 });
 const $=id=>document.getElementById(id);
 const qs=new URLSearchParams(location.search);
+// Painel da tela compartilhada: não conecta; recebe do pai por postMessage.
+const SHARE_PANE=qs.get('obsPane')==='1';
 // F3.3q: versão no idle (canto inferior direito) — ?v= override ou padrão.
 window.__PALCO_APPV__=window.__PALCO_APPV__||'0.3.1';
 (function(){var el=$('idleVer');if(!el)return;var qv=qs.get('v')||window.__PALCO_APPV__||'';if(qv){el.textContent='PIANO LouvorJA Palco · receiver v'+qv;return}fetch('appinfo.json').then(function(r){return r.json()}).then(function(j){el.textContent='PIANO LouvorJA Palco · receiver v'+(j.version||'?')}).catch(function(){fetch('config.xml').then(function(r){return r.text()}).then(function(t){var m2=t.match(/version="([^"]+)"/);el.textContent='PIANO LouvorJA Palco · receiver v'+(m2?m2[1]:'?')}).catch(function(){el.textContent='PIANO LouvorJA Palco'})})})()
@@ -3153,6 +3157,63 @@ document.addEventListener('pointerdown',function(){if(mutedUnlock||pendingPlay)u
 
 function isAudioUrl(u){return /\.(mp3|m4a|aac|wav|ogg|flac)(\?|$)/i.test(u||'')}
 
+// ===== Tela compartilhada (paridade com o receiver do navegador) =====
+// Dois painéis isolados (iframes desta mesma página com ?obsPane=1); só a
+// página principal tem WebSocket. Página local (file://) é origem opaca:
+// a conversa com os painéis é por postMessage.
+const shareState={enabled:false,frames:[],ready:[],messages:[new Map(),new Map()],active:[false,false]};
+const SHARE_CONTENT=['projection','timer','clock','video','audio'];
+function shareLayout(){
+  const both=shareState.active[0]&&shareState.active[1];
+  shareState.frames.forEach(function(frame,index){
+    frame.style.display=shareState.active[index]?'block':'none';
+    frame.style.width=both?'50%':'100%';
+    frame.style.left=both&&index===1?'50%':'0';
+  });
+}
+function shareRemember(m,index){
+  const messages=shareState.messages[index];
+  if(m.type==='idle'||m.type==='stop-all'){['projection','timer','clock','video','audio','audio-sync','video-sync'].forEach(function(t){messages.delete(t)});}
+  messages.set(m.type,Object.assign({},m,{obsPane:false}));
+  if(SHARE_CONTENT.indexOf(m.type)>=0)shareState.active[index]=true;
+  if(m.type==='idle'||m.type==='stop-all')shareState.active[index]=false;
+}
+function shareSend(m,index){
+  const frame=shareState.frames[index];
+  if(shareState.ready[index]&&frame&&frame.contentWindow)frame.contentWindow.postMessage(Object.assign({},m,{obsPane:false}),'*');
+}
+function shareEnable(enabled){
+  if(shareState.enabled===enabled)return;
+  shareState.enabled=enabled;
+  if(!enabled){
+    const wrap=document.getElementById('shareView');if(wrap)wrap.remove();
+    shareState.frames=[];shareState.ready=[];shareState.messages[1].clear();shareState.active[1]=false;
+    shareState.messages[0].forEach(function(message){handle(message)});
+    return;
+  }
+  ['video','audio'].forEach(function(id){try{$(id).pause()}catch(e){}});
+  const wrap=document.createElement('div');wrap.id='shareView';
+  wrap.style.cssText='position:fixed;inset:0;background:#000;z-index:100000';
+  document.body.appendChild(wrap);
+  [0,1].forEach(function(index){
+    const frame=document.createElement('iframe');
+    const sep=location.search?'&':'?';
+    frame.style.cssText='position:absolute;top:0;height:100%;border:0;background:#000';
+    frame.onload=function(){
+      if(!shareState.enabled||shareState.frames[index]!==frame)return;
+      shareState.ready[index]=true;
+      shareState.messages[index].forEach(function(message){shareSend(message,index)});
+    };
+    shareState.frames[index]=frame;
+    frame.src=location.pathname+location.search+sep+'obsPane=1';
+    wrap.appendChild(frame);
+  });
+  shareLayout();
+}
+if(SHARE_PANE)window.addEventListener('message',function(e){
+  if(e.source===window.parent&&e.data&&typeof e.data==='object')handle(e.data);
+});
+
 function handle(m){
   if(m.v!==1&&m.v!==2)return;
   // Tela de espera sem logo (opção do transmissor, reenviada ao conectar).
@@ -3172,6 +3233,24 @@ function handle(m){
       tries=0;try{if(ws)ws.close()}catch(e){}
     }
     return;}
+  // Compartilhar (projeção independente): a tela se divide em dois painéis;
+  // o da esquerda segue a transmissão e o da direita mostra o módulo.
+  if(!SHARE_PANE){
+    // tvShare = esta TV (projeção independente); obsShare é da transmissão
+    // inteira (conexão OBS) e chega várias vezes por segundo: obedecer a ele
+    // desfazia a tela dividida da TV (piscava).
+    if(m.type==='tvShare'){shareEnable(m.enabled===true);return;}
+    if(m.type==='obsShare')return;
+    const index=m.obsPane===true?1:0;
+    if(m.type==='obsIdle'||m.type==='bgPalco'){
+      shareRemember(m,0);shareRemember(m,1);
+      if(shareState.enabled){shareSend(m,0);shareSend(m,1);return;}
+    }else{
+      shareRemember(m,index);
+      if(shareState.enabled){shareSend(m,index);shareLayout();return;}
+      if(index===1)return;
+    }
+  }
   // HARDENING culto: mídia externa (vídeo/pdf/ppt/áudio da liturgia) viva
   // tem prioridade absoluta no slot. Mensagens de texto/projection não podem
   // renderizar por cima (cross-bleed owner — caso real 28/08: random sobre
@@ -3508,6 +3587,7 @@ function handle(m){
 // WT-5d: boot — código cloud na query (?code=XXXXXX) ou salvo em localStorage
 // tem prioridade; sem código, segue o fluxo local (scan do sender na LAN).
 (function(){
+  if(SHARE_PANE)return;
   var bootCode=(qs.get('code')||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
   if(!bootCode){try{bootCode=localStorage.getItem('palcoCloudCode')||''}catch(e){}}
   if(bootCode&&bootCode.length===6){cloudConnect(bootCode);return}
@@ -3533,6 +3613,7 @@ function handle(m){
     }catch(e){dlog('AUTO-RELAUNCH erro: '+e.message)}
   }
   document.addEventListener('visibilitychange',function(){
+    if(SHARE_PANE)return;
     var wasConnected=ws&&ws.readyState===1;
     if(document.hidden&&wasConnected){
       if(relaunchTimer)clearTimeout(relaunchTimer);
