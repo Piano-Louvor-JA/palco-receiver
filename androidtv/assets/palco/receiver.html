@@ -108,6 +108,14 @@
   #text.cover-on{text-transform:uppercase;font-weight:900;letter-spacing:.03em;
     color:#f6c32a;background:none;padding:0;border:none;box-shadow:none;
     border-radius:0;line-height:1.1}
+  /* Caixinha na capa (titleTextBox): a mesma de cantos folha das outras
+     projeções — paridade com o receiver do desktop (14/10). */
+  #text.cover-on.title-box-on{background:rgba(24,24,24,var(--box-bg,.55));
+    width:fit-content;max-width:100%;margin-inline:auto;
+    padding:2.5vmin 4vmin;
+    border-radius:2.4vmin 0 2.4vmin 0;
+    border:var(--box-border,.2vmin solid rgba(255,255,255,.85));
+    box-shadow:0 10px 30px rgba(0,0,0,.4)}
   #text.box-off{background:none;padding:0;border:none;box-shadow:none}
 
   #footer{position:fixed;bottom:4vh;left:0;right:0;text-align:center;
@@ -2896,7 +2904,7 @@ function showIdle(msg){
   $('text').textContent='';$('footer').textContent='';
   // F3.3ac: remove estilos de projeção (caixa/sombra) — senão a caixa
   // vazia continuava desenhada no idle após "Limpar projeção".
-  $('text').classList.remove('box-on','shadow-on','box-off','shadow-off','cover-on');
+  $('text').classList.remove('box-on','shadow-on','box-off','shadow-off','cover-on','title-box-on');
   $('text').style.removeProperty('--box-bg');
   $('text').style.removeProperty('--box-border');
   $('text').style.removeProperty('--ts');
@@ -3309,6 +3317,7 @@ function handle(m){
       $('veil').style.display=m.text?'':'none';
       $('text').innerHTML=m.text||'';
       $('text').classList.toggle('cover-on',m.isCover===true);
+      $('text').classList.toggle('title-box-on',m.isCover===true&&m.titleTextBox===true);
       // F3.3o: fontSize/fontWeight dinâmicos (settings do operador).
       {const t=$('text');
         if(typeof m.fontSize==='number')
@@ -3385,7 +3394,8 @@ function handle(m){
         else{t.classList.add('shadow-on');
           if(typeof m.shadowBlur==='number')
             t.style.setProperty('--ts',`0 ${Math.max(1,m.shadowBlur/3)}vh ${m.shadowBlur}vh rgba(0,0,0,${m.shadowIntensity!=null?m.shadowIntensity:0.8})`)}
-        if(m.textBox){t.classList.add('box-on');
+        // Capa: caixinha só com titleTextBox (como o receiver do desktop).
+        if(m.isCover===true?m.titleTextBox===true:m.textBox){t.classList.add('box-on');
           if(typeof m.boxOpacity==='number')t.style.setProperty('--box-bg',m.boxOpacity);
           t.style.setProperty('--box-border',
             m.boxBorder?`${m.boxBorder.width||0.4}vh solid ${m.boxBorder.color||'rgba(255,255,255,.25)'}`:'none')}
