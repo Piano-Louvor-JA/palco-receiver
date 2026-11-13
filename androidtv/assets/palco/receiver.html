@@ -2538,6 +2538,7 @@ var qrcode = function() {
 }));
 
 </script>
+<script src="network-mirror.js"></script>
 <script>
 function dlog(m1,m2,m3){try{console.log('[P]',m1,m2!==undefined?String(m2):'',m3!==undefined?String(m3):'')}catch(e){}}
 // window.onerror → visível no DevTools, reportado ao sender e ao Glitchtip
@@ -2753,6 +2754,7 @@ function connect(){
 // Watchdog: sender morreu/fechou com mídia tocando → para NA HORA.
 // Sem isso o áudio continuava até o fim depois do app cair.
 function stopMediaOnServerLoss(){
+  try{cleanMirror.stop()}catch(e){}
   try{
     const a=$('audio'); if(a&&!a.paused){a.pause();a.currentTime=0}
     const v=$('video'); if(v&&!v.paused){v.pause();v.removeAttribute('src');v.style.display='none';v.load()}
@@ -2915,6 +2917,19 @@ function hideIdle(){$('idle').classList.add('hidden')}
 // essa origem (erro 153). O player fica numa página servida pelo
 // transmissor (http://host:porta-1/youtube) e é controlado por postMessage.
 let ytFrame=null,ytId=null,ytPaused=false;
+// Espelho limpo (WebRTC, mesmo network-mirror.js do desktop): o transmissor
+// manda o vídeo pronto; a TV só exibe, sem player nem áudio próprio.
+const cleanMirror=window.PianoNetworkMirror?PianoNetworkMirror.createReceiver({
+  send:sendEvent,
+  attach:function(stream){
+    if(ytId)stopYoutube();
+    const video=$('video');video.pause();video.removeAttribute('src');video.srcObject=stream;
+    video.style.display='block';video.style.objectFit='contain';
+    hideIdle();hideNp();playVideoWithFallback();
+  },
+  clear:function(){hideMuteBadge();const video=$('video');if(video.srcObject){video.pause();video.srcObject=null;video.style.display='none'}},
+  error:function(message){showIdle(message)},
+}):{active:function(){return false},stop:function(){},start:function(){},handle:function(){return Promise.resolve()}};
 function ytPost(cmd){
   try{if(ytFrame&&ytFrame.contentWindow)ytFrame.contentWindow.postMessage(Object.assign({louvorjaYoutube:'command'},cmd),'*')}catch(e){}
 }
@@ -3330,6 +3345,22 @@ function handle(m){
     window.__mediaLastSeen=0;
     if(window.__videoAudioActive){window.__videoAudioActive=false}
     try{const _v2=$('video'),_a2=$('audio');_v2.pause();_v2.removeAttribute('src');_v2.load();_a2.pause()}catch(e){}
+  }
+  if(m.type==='mirror-signal'){
+    cleanMirror.handle(m).catch(function(){showIdle('Não foi possível conectar a transmissão do player.')});return;
+  }
+  if(m.type==='video'&&m.cleanMirror&&typeof m.mirrorSession==='string'){
+    if(ytId)stopYoutube();hideIdle();hideNp();
+    $('audio').pause();
+    cleanMirror.start(m.mirrorSession);return;
+  }
+  if(cleanMirror.active()){
+    if(m.type==='audio'&&!m.url)return;
+    if(m.type==='video'&&!m.url&&!m.youtubeId){
+      if(m.action==='stop'){cleanMirror.stop();showIdle('Aguardando transmissão…')}
+      return;
+    }
+    if(['video','audio','projection','timer','clock','idle','bgPalco','stop-all'].includes(m.type))cleanMirror.stop();
   }
   switch(m.type){
     case 'projection':
