@@ -36,3 +36,12 @@ test('tela de espera: "Aguardando transmissão…" e logo pulsando', () => {
   assert.doesNotMatch(html, /Aguardando conteúdo/)
   assert.match(html, /#idleLogo\{animation:idleLogoFade 3\.2s ease-in-out infinite\}/)
 })
+
+test('saída de áudio: a TV silencia o vídeo quando o áudio fica só no player', () => {
+  assert.match(html, /let connectionAudioMuted=false;/)
+  assert.match(html, /if\(m\.type==='audioOutput'\)\{\n    connectionAudioMuted=m\.mode==='player';\n    \$\('video'\)\.muted=connectionAudioMuted;\$\('audio'\)\.muted=connectionAudioMuted;/)
+  assert.match(html, /if\(m\.type==='video'&&typeof m\.connectionsMuted==='boolean'\)\{connectionAudioMuted=m\.connectionsMuted;\$\('video'\)\.muted=connectionAudioMuted\}/)
+  // desbloqueio por gesto e play com som respeitam a saída escolhida
+  assert.match(html, /function playVideoWithFallback\(\)\{\n  const v=\$\('video'\);\n  v\.muted=connectionAudioMuted;/)
+  assert.match(html, /const vv=\$\('video'\); if\(vv\)\{vv\.muted=connectionAudioMuted;/)
+})

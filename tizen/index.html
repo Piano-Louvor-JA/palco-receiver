@@ -2938,6 +2938,9 @@ let pendingPlay=false;
 // positionMs); primeiro gesto só DESMUTA (áudio já estava rodando, entra
 // no ponto certo). Badge discreto, não bloqueia a tela.
 let mutedUnlock=false;
+// Saída de áudio do transmissor: 'player' deixa o som só no celular/computador
+// e a TV mostra o vídeo sem som (mesma regra do receiver do desktop).
+let connectionAudioMuted=false;
 function showMuteBadge(){
   if($('muteBadge'))return;
   const b=document.createElement('div');
@@ -2953,13 +2956,13 @@ function hideMuteBadge(){const b=$('muteBadge');if(b)b.remove()}
 function unmuteNow(){
   mutedUnlock=false;hideMuteBadge();
   a0.muted=false;
-  const vv=$('video'); if(vv){vv.muted=false; if(vv.paused&&vv.src)vv.play().catch(function(){})}
+  const vv=$('video'); if(vv){vv.muted=connectionAudioMuted; if(vv.paused&&vv.src)vv.play().catch(function(){})}
   a0.play().then(()=>sendEvent({v:1,type:'unlocked'})).catch(()=>{});
   sendEvent({v:1,type:'unlocked'});
 }
 function playVideoWithFallback(){
   const v=$('video');
-  v.muted=false;
+  v.muted=connectionAudioMuted;
   v.play().then(()=>{
     dlog('VID PLAY OK (som)');
   }).catch(e=>{
@@ -3233,6 +3236,13 @@ function handle(m){
       tries=0;try{if(ws)ws.close()}catch(e){}
     }
     return;}
+  if(m.type==='audioOutput'){
+    connectionAudioMuted=m.mode==='player';
+    $('video').muted=connectionAudioMuted;$('audio').muted=connectionAudioMuted;
+    if(connectionAudioMuted)hideMuteBadge();
+    return;
+  }
+  if(m.type==='video'&&typeof m.connectionsMuted==='boolean'){connectionAudioMuted=m.connectionsMuted;$('video').muted=connectionAudioMuted}
   // Compartilhar (projeção independente): a tela se divide em dois painéis;
   // o da esquerda segue a transmissão e o da direita mostra o módulo.
   if(!SHARE_PANE){
