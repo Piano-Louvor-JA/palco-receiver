@@ -46,14 +46,78 @@ class _ReceiverPageState extends State<ReceiverPage> {
   @override
   void initState() {
     super.initState();
+
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      // loadFlutterAsset é o caminho correto pra assets empacotados no APK
-      // (loadFile resolve como http://assets/... → ERR_NAME_NOT_RESOLVED,
-      // bug diagnosticado no A03/Android em 2026-08-20).
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (String url) async {
+            final ip = await _localIpv4();
+
+            if (ip == null) {
+              debugPrint('[Network] IP local não identificado');
+              return;
+            }
+
+            try {
+              await _controller.runJavaScript(
+                '''
+                window.__PALCO_LOCAL_IP = "$ip";
+                if (typeof window.__palcoLocalIpReady === "function") {
+                  window.__palcoLocalIpReady();
+                }
+                ''',
+              );
+
+              debugPrint('[Network] IP informado ao Receiver: $ip');
+            } catch (e) {
+              debugPrint('[Network] Falha ao informar IP: $e');
+            }
+          },
+        ),
+      )
       ..loadFlutterAsset('assets/palco/receiver.html');
+
     _registerNsd();
   }
+
+  Future<String?> _localIpv4() async {
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLoopback: false,
+      );
+
+      String? fallback;
+
+      for (final network in interfaces) {
+        for (final address in network.addresses) {
+          final ip = address.address;
+
+          final privateIp = ip.startsWith('192.168.') ||
+              ip.startsWith('10.') ||
+              RegExp(r'^172\.(1[6-9]|2\d|3[01])\.').hasMatch(ip);
+
+          if (!privateIp) continue;
+
+          final name = network.name.toLowerCase();
+          if (name.startsWith('wlan') ||
+              name.startsWith('eth') ||
+              name.startsWith('en')) {
+            return ip;
+          }
+
+          fallback ??= ip;
+        }
+      }
+
+      return fallback;
+    } catch (e) {
+      debugPrint('[Network] Falha ao identificar IP local: $e');
+      return null;
+    }
+  }
+
 
   /// Anuncia _palco._tcp — só pra o sender ACHAR a TV (o WS conecta no
   /// sentido TV→celular; porta anunciada é dummy).
