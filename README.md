@@ -54,7 +54,7 @@ Brasil exige Partner Seller).
 ## Releases
 
 IPKs e APKs publicados em
-https://github.com/pianolouvorja/palco-receiver/releases
+https://github.com/Piano-Louvor-JA/palco-receiver/releases
 (repo privado: asset URL exige token — para download direto da TV use Dev
 Mode/scp, ou aguarde publicação em loja).
 
@@ -79,15 +79,16 @@ tag, o canal de updates publica sozinho:
 5. O workflow `publish-update.yml` dispara na tag:
    - valida semver + sanidade (tag == appinfo == HTML)
    - publica HTML+assets+`manifest.json` na `gh-pages` do repo público
-     [`pianolouvorja/palco-updates`](https://github.com/pianolouvorja/palco-updates)
+     [`Piano-Louvor-JA/palco-updates`](https://github.com/Piano-Louvor-JA/palco-updates)
      (repo de artefato — **só o CI escreve**, branches protegidas)
    - espera o GitHub Pages propagar
-6. **TVs na 0.1.43+** buscam o canal no boot (+4s) e de hora em hora; se
-   a versão remota for maior e a TV estiver no idle (sem mídia), trocam
-   sozinhas. TVs ≤0.1.42 **não têm updater** — último install manual.
+6. O updater automático só existiu nas TVs 0.1.43 e 0.1.44, e elas consultam
+   o endereço antigo `pianolouvorja.github.io`, que deixou de responder com a
+   troca de nome da organização. As demais versões **não têm updater**: a
+   atualização é pelo pacote da loja/release ou abrindo o canal no navegador.
 
 Canal público (serve receiver em qualquer browser, zero install):
-`https://pianolouvorja.github.io/palco-updates/manifest.json`
+`https://piano-louvor-ja.github.io/palco-updates/manifest.json`
 
 Secrets necessários (já configurados): `PALCO_UPDATES_TOKEN` (PAT com
 escopo `repo`) no palco-receiver.

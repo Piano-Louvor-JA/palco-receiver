@@ -1,8 +1,7 @@
 name: Publish update canal
 
-# Publica o receiver + manifest no canal público (pianolouvorja/palco-updates,
+# Publica o receiver + manifest no canal público (Piano-Louvor-JA/palco-updates,
 # servido por GitHub Pages) quando uma tag v* sai da main.
-# As TVs com updater (>= 0.1.43) buscam esse canal e se atualizam sozinhas.
 # Repo de artefato: nenhum humano pusha direto — só este job (flow da org:
 # feat -> staging -> main -> tag -> canal).
 
@@ -47,7 +46,7 @@ jobs:
       - name: Checkout palco-updates gh-pages
         uses: actions/checkout@v7
         with:
-          repository: pianolouvorja/palco-updates
+          repository: Piano-Louvor-JA/palco-updates
           ref: gh-pages
           token: ${{ secrets.PALCO_UPDATES_TOKEN }}
           path: palco-updates
@@ -77,7 +76,7 @@ jobs:
           V="${GITHUB_REF_NAME#v}"
           sleep 30
           for i in 1 2 3 4 5 6; do
-            CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://pianolouvorja.github.io/palco-updates/$V/index.html")
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://piano-louvor-ja.github.io/palco-updates/$V/index.html")
             echo "tentativa $i: HTTP $CODE"
             if [ "$CODE" = "200" ]; then exit 0; fi
             sleep 30
