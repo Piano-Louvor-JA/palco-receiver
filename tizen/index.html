@@ -2696,13 +2696,15 @@ async function scanSubnet(){
   // presume /24 da própria TV (rede típica de igreja)
   // file:// (IPK/simulador local): hostname vazio — tenta últimos hosts
   // conhecidos da sub-rede salva antes do default. Cobertura p/ IPK.
-  let me=location.hostname;
+  let me=window.__PALCO_LOCAL_IP || location.hostname;
   if(!me){
     const saved=localStorage.getItem('palcoHost');
     me=saved||'192.168.1.100';
   }
   const prefix=me.split('.').slice(0,3).join('.');
-  const base=host?host.split('.').slice(0,3).join('.'):prefix;
+  const base=host&&/^(?:\d{1,3}\.){3}\d{1,3}$/.test(host)
+  ?host.split('.').slice(0,3).join('.')
+  :prefix;
   const ips=[];
   for(let i=1;i<255;i++)ips.push(base+'.'+i);
   if(host)ips.unshift(host); // último conhecido primeiro
@@ -2717,11 +2719,33 @@ async function scanSubnet(){
   return null;
 }
 
+var palcoScanGeneration=0;
+
+window.__palcoLocalIpReady=function(){
+  var ip=window.__PALCO_LOCAL_IP||'';
+  var ipv4=/^(?:\d{1,3}\.){3}\d{1,3}$/;
+
+  if(cloudMode || qs.get('host') || !ipv4.test(ip))return;
+  if(ws && ws.readyState===1)return;
+
+  var prefix=ip.split('.').slice(0,3).join('.');
+
+  // Preserva uma conexão já direcionada à mesma rede.
+  if(host && ipv4.test(host) &&
+     host.split('.').slice(0,3).join('.')===prefix)return;
+
+  // Reinicia a descoberta usando a rede informada pelo Flutter.
+  host='';
+  connect();
+};
+
 function connect(){
   dlog('connect() host="'+host+'"');
   if(!host){
+    var currentScan=++palcoScanGeneration;
     setStatus('procurando LouvorJA na rede…');
     scanSubnet().then(found=>{
+      if(currentScan!==palcoScanGeneration || cloudMode)return;
       if(found){host=found;localStorage.setItem('palcoHost',host);doConnect()}
       else{setStatus('nenhum sender encontrado — tentando de novo…',true);retry()}
     });
@@ -2743,7 +2767,8 @@ function connect(){
   // Tenta WS direto no host salvo; se falhar 1x sem nunca abrir, host é stale.
   function directTry(){
     var opened=false;
-    var t=setTimeout(function(){if(!opened){dlog('WS direto falhou — host stale');localStorage.removeItem('palcoHost');host='';connect()}},3000);
+    var attemptedHost=host;
+    var t=setTimeout(function(){if(!opened && host===attemptedHost && !cloudMode){dlog('WS direto falhou — host stale');localStorage.removeItem('palcoHost');host='';connect()}},3000);
     try{var w=new WebSocket('ws://'+host+':'+port+'/palco');
       w.onopen=function(){opened=true;clearTimeout(t);try{w.close()}catch(e){};doConnect()};
       w.onerror=function(){};

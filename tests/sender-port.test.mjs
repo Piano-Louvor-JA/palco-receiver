@@ -22,13 +22,15 @@ function receiver({ query = '', saved = {}, open = [] } = {}) {
     URLSearchParams,
     qs: new URLSearchParams(query),
     location: { hostname: '', protocol: 'file:' },
+    window: {},
     localStorage: {
       getItem: (k) => (store.has(k) ? store.get(k) : null),
       setItem: (k, v) => store.set(k, String(v)),
       removeItem: (k) => store.delete(k),
     },
-    cloudMode: false,
-    fetch: (url) => {
+cloudMode: false,
+dlog: () => {},
+fetch: (url) => {
       asked.push(url)
       const { hostname, port, pathname } = new URL(url)
       if (pathname === '/status' && open.includes(`${hostname}:${port}`)) {
@@ -40,6 +42,7 @@ function receiver({ query = '', saved = {}, open = [] } = {}) {
   const code = [
     slice('function proxyUrl(original){', 'function setStatus('),
     slice('// ===== Auto-descoberta', 'async function scanSubnet'),
+    slice('async function scanSubnet(){', 'function connect(){'),
     slice('function coverUrl(cover){', 'function showNp('),
     ';globalThis.__state=()=>({host,port});globalThis.__setHost=(h)=>{host=h};',
   ].join('\n')
@@ -120,4 +123,40 @@ test('mídia remota e capas passam pela porta HTTP de quem transmite', async () 
 
 test('a dica de porta manual cita a porta nova', () => {
   assert.match(html, /SÓ A PORTA \(ex\.: 47081\)/)
+})
+
+test('Android TV descobre o sender usando o IP local informado pelo Flutter', async () => {
+  const r = receiver({
+    open: ['192.168.18.12:47080']
+  })
+
+  // Simula o IP real da TCL informado pelo Android.
+  r.context.window = {
+    __PALCO_LOCAL_IP: '192.168.18.20'
+  }
+
+  const found = await r.context.scanSubnet()
+
+  assert.equal(found, '192.168.18.12')
+  assert.equal(r.state().port, '47081')
+})
+
+test('aviso do Flutter inicia descoberta na rede local da TV', async () => {
+  const r = receiver({
+    open: ['192.168.18.12:47080']
+  })
+
+  r.context.ws = null
+
+  let pendingScan = null
+
+  r.context.connect = () => {
+    pendingScan = r.context.scanSubnet()
+  }
+
+  r.context.window.__PALCO_LOCAL_IP = '192.168.18.20'
+  r.context.window.__palcoLocalIpReady()
+
+  assert.ok(pendingScan, 'o aviso deve iniciar uma nova busca')
+  assert.equal(await pendingScan, '192.168.18.12')
 })
