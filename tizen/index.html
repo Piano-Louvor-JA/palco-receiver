@@ -71,11 +71,13 @@
 <style>
   html,body{margin:0;height:100%;overflow:hidden;background:#0A0E1A;
     font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#fff}
+  /* Fundo sem película escura: mesma cor do receiver do navegador
+     (/espelho); a leitura fica por conta da sombra do texto. */
   #bg{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;
-    filter:brightness(.55);transition:opacity .8s}
+    filter:none;transition:opacity .8s}
   #bg[src=""]{opacity:0}
   #bgPalco{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover}
-  #veil{position:fixed;inset:0;background:rgba(0,0,0,.45)}
+  #veil{position:fixed;inset:0;background:transparent;pointer-events:none}
   #content{position:fixed;top:0;left:0;right:0;bottom:0;padding:3vh 4vw;
     box-sizing:border-box}
   #text{position:absolute;top:50%;left:50%;
@@ -106,6 +108,14 @@
   #text.cover-on{text-transform:uppercase;font-weight:900;letter-spacing:.03em;
     color:#f6c32a;background:none;padding:0;border:none;box-shadow:none;
     border-radius:0;line-height:1.1}
+  /* Caixinha na capa (titleTextBox): a mesma de cantos folha das outras
+     projeções — paridade com o receiver do desktop (14/10). */
+  #text.cover-on.title-box-on{background:rgba(24,24,24,var(--box-bg,.55));
+    width:fit-content;max-width:100%;margin-inline:auto;
+    padding:2.5vmin 4vmin;
+    border-radius:2.4vmin 0 2.4vmin 0;
+    border:var(--box-border,.2vmin solid rgba(255,255,255,.85));
+    box-shadow:0 10px 30px rgba(0,0,0,.4)}
   #text.box-off{background:none;padding:0;border:none;box-shadow:none}
 
   #footer{position:fixed;bottom:4vh;left:0;right:0;text-align:center;
@@ -122,12 +132,17 @@
     text-align:center;width:60vw}
   #idle.hidden{opacity:0;pointer-events:none}
   #idleLogos img,#idleLogos svg{display:block;margin:0 auto}
-  #idleLogo{height:14vh;max-width:50vw;margin:0 auto 4vh auto}#idleLogo svg{width:100%;height:100%;display:block}
+  .idle-no-logo #idleLogos,.idle-no-logo #bars{display:none}
+  #idleLogo{height:14vh;max-width:50vw;margin:0 auto 4vh auto}
+  /* Logo pulsando na espera: mesmo fade das conexões de transmissão
+     (navegador/OBS, #castWaiting). */
+  #idleLogo{animation:idleLogoFade 3.2s ease-in-out infinite}
+  @keyframes idleLogoFade{0%,100%{opacity:.35}50%{opacity:1}}
+  @media (prefers-reduced-motion:reduce){#idleLogo{animation:none;opacity:.85}}#idleLogo svg{width:100%;height:100%;display:block}
   /* F3.3n: wordmark "Louvor JA" — identidade fixa, não personalizável. */
+  #idlePiano{font-weight:700}
   #idleWordmark{font-size:3.6vh;font-weight:300;letter-spacing:.8vh;
     color:#fff;opacity:.92;margin:0 0 3vh 0;text-transform:none}
-  #idleCodenameWrap{height:6vh;max-width:44vw;margin:0 auto}
-  #idleCodenameWrap svg{width:100%;height:100%;color:#fff;opacity:.9;display:block}
   #bars{margin:4vh auto 0 auto}
   #bars div{width:5vh;height:1.2vh;display:inline-block;margin:0 .5vh}
   #idle p{font-size:2.5vh;opacity:.6;margin:3vh 0 0 0}
@@ -165,6 +180,8 @@
 <script>
 (function(){
   var s=document.getElementById('splash');
+  // Painel da tela compartilhada (?obsPane=1): sem splash.
+  if(/[?&]obsPane=1(&|$)/.test(location.search)&&s){s.remove();s=null}
   function hide(){if(!s)return;s.style.opacity='0';
     setTimeout(function(){s&&s.remove()},700);s=null}
   setTimeout(hide,2500);
@@ -201,17 +218,14 @@
 <path d="M278.892 38.8907C279.872 39.2227 281.692 41.0432 282.277 41.8622C313.567 85.8607 285.912 134.023 249.98 163.871L244.927 168.098C234.464 148.535 236.041 109.546 242.838 88.3307C249.554 67.3707 259.215 49.7352 278.892 38.8907Z" fill="#FCCE02"/>
 <path d="M277.012 323.881C288.562 324.13 300.417 329.892 309.472 336.816C338.637 359.111 345.102 405.044 321.822 434.159C316.432 440.739 312.127 444.539 305.057 449.084C294.867 408.619 286.032 364.841 277.012 323.881Z" fill="#10438C"/>
 </svg></div>
-    <div id="idleWordmark">Louvor JA</div>
-    <div id="idleCodenameWrap">
-      <svg viewBox="0 0 584 144" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-label="codename PIANO"><g id="codenome" fill="currentColor" fill-rule="evenodd" stroke="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M0.552734 52.12L38.207 52.16C49.0463 52.1901 62.129 51.9937 72.7246 55.6259C78.0089 57.4377 82.643 60.1938 86.0625 64.3817C89.479 68.566 91.7152 74.2186 92.1387 81.8827C92.6331 90.8296 89.7426 97.6899 84.708 102.702C79.6623 107.725 72.4275 110.926 64.1875 112.462C59.7827 113.192 52.0324 113.407 44.0645 113.432C36.1031 113.456 27.9927 113.291 22.8496 113.266L22.3477 113.263V113.766L22.3633 141.214L0.504883 141.19C0.852101 111.69 0.564299 81.6488 0.552734 52.12Z M23.5454 70.5909C33.8294 70.5845 44.2788 70.2489 54.4751 70.9044L56.5435 71.0509C62.0721 71.4814 66.0641 74.7158 67.7271 78.8273C69.3833 82.9223 68.744 87.9249 64.9302 91.9796C62.7357 93.48 59.7518 94.4995 56.2954 95.1652C52.8222 95.834 48.9097 96.1429 44.9165 96.254C37.1311 96.4708 29.1796 95.9394 23.5444 95.8829L23.5454 70.5909Z"/><path d="M111.754 52.0109C119.167 52.1074 126.581 52.1171 133.994 52.049C133.71 81.7644 133.692 111.485 133.94 141.2L111.737 141.224L111.754 52.0109Z"/><path d="M220.071 52.014C222.834 58.5913 227.402 67.5127 230.478 74.2279L230.479 74.2308L261.562 141.258C253.301 141.179 244.867 141.277 236.608 141.288C234.01 135.998 231.117 128.858 228.697 123.315L226.684 118.717C221.996 107.989 217.376 97.2343 212.824 86.4486L208.623 76.2885L208.188 75.2338L207.708 76.2699C206.38 79.1388 205.116 82.2679 203.865 85.4047C202.613 88.546 201.374 91.6935 200.087 94.6185C193.274 110.119 186.822 125.776 179.944 141.219C171.964 141.478 162.754 141.257 154.6 141.233C158.165 134.416 162.304 124.706 165.74 117.32L166.442 115.824C176.471 94.5937 186.385 73.3089 196.185 51.975L220.071 52.014Z"/><path d="M370.924 52.1672L370.995 110.986C370.997 114.367 371.105 120.423 371.125 126.318C371.146 132.088 371.08 137.731 370.762 140.778C370.251 141.051 369.626 141.172 368.913 141.214C368.087 141.263 367.266 141.205 366.394 141.205H366.39C361.666 141.245 356.942 141.253 352.218 141.235C341.04 128.781 329.924 116.267 318.875 103.699C312.777 96.7531 306.074 88.7465 299.584 82.2073L298.728 81.344L298.73 82.5608L298.814 141.144C291.785 141.299 284.41 141.206 277.339 141.21C277.785 111.903 277.394 81.4582 277.391 52.0676C285.259 52.138 293.128 52.1522 300.997 52.1047C306.777 57.8672 312.758 65.1276 318.241 71.3118L318.243 71.3137C328.546 82.8014 338.743 94.3841 348.836 106.062L349.718 107.082L349.714 105.734L349.555 52.0569L370.924 52.1672Z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M439.689 49.7098C453.319 48.6748 470.205 53.7402 480.505 62.8601C489.35 70.8301 494.669 81.9851 495.289 93.8699C496.089 105.985 492.024 117.915 483.989 127.015C473.824 138.445 459.779 142.945 444.904 143.745C429.83 144.28 416.24 140.75 404.465 130.97C385.41 115.136 383.435 85.6504 399.73 67.1004C410.075 55.3204 424.314 50.7598 439.689 49.7098ZM460.569 74.6902C454.839 70.5454 447.22 68.7056 440.21 69.2205C436.92 69.5055 434.59 69.7005 431.345 70.6805C410.72 76.9155 405.704 104.48 422.359 117.805C429.354 123.4 435.965 124.62 444.805 124.455C462.12 122.035 473.919 110.625 471.314 92.4949C470.359 85.325 466.469 78.8802 460.569 74.6902Z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M123.546 0.649655C128.552 0.469656 133.045 1.32012 137.248 4.21509C141.249 6.97009 143.978 11.2152 144.825 16.0002C145.747 21.13 144.479 26.4147 141.327 30.5696C137.62 35.4046 133.178 37.0295 127.467 37.8645C122.164 38.1844 116.604 37.1646 112.289 33.8997C108.427 30.9597 105.917 26.5848 105.329 21.7649C104.666 16.9199 105.951 12.0095 108.904 8.1145C112.853 2.98967 117.532 1.52465 123.546 0.649655ZM136.177 16.5002C134.636 10.4603 128.52 6.79002 122.466 8.26489C118.492 9.23889 115.346 12.2654 114.227 16.2004C113.108 20.1354 114.188 24.3655 117.056 27.2854C119.924 30.2002 124.138 31.3501 128.09 30.2952C134.112 28.6901 137.719 22.5402 136.177 16.5002Z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M177.114 1.25474C186.369 1.07474 196.894 0.740206 202.235 9.99498C204.675 14.2999 205.275 19.41 203.899 24.16C202.216 29.9099 198.874 32.9451 193.876 35.66C186.522 38.2 175.873 37.4153 167.971 37.3153L167.935 1.27037L177.114 1.25474ZM192.563 11.3905C187.606 7.68048 182.277 8.08544 176.48 8.22544C176.583 15.5851 176.566 22.9448 176.428 30.3045C182.557 30.4295 187.163 31.0949 192.43 27.6151C196.788 22.5402 198.592 15.9055 192.563 11.3905Z"/><path d="M69.0102 1.15725C72.6563 1.00229 75.5389 1.32525 78.1527 2.29104C80.6443 3.21167 82.9259 4.73055 85.4076 7.04104L80.5336 11.5371C76.6264 8.1814 71.7424 6.9612 67.6312 7.89748C63.3689 8.86828 59.9866 12.1508 59.4389 17.6201V17.6221C59.0927 21.1984 60.238 24.7585 62.6039 27.4668C64.6278 29.7958 67.5276 31.1895 70.6137 31.3047H70.6166C74.8699 31.4411 77.6762 29.5009 80.4643 26.9121C82.2519 28.3178 84.0276 29.9218 85.765 31.4541C78.4925 37.9289 68.5296 40.0036 60.0268 34.5732C55.9568 31.9836 53.1088 27.8655 52.1176 23.1572L52.0277 22.7002C50.9402 16.6603 52.3567 11.7375 55.4291 8.10061C58.5071 4.4571 63.2883 2.05635 69.0102 1.15725Z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M335.432 0.0229461C340.438 -0.157053 344.931 0.693404 349.134 3.58838C353.135 6.34338 355.864 10.5885 356.711 15.3735C357.633 20.5033 356.365 25.788 353.213 29.9429C349.506 34.7779 345.064 36.4028 339.353 37.2378C334.05 37.5577 328.49 36.5379 324.175 33.2729C320.313 30.3329 317.803 25.9581 317.215 21.1382C316.552 16.2932 317.837 11.3828 320.789 7.48779C324.739 2.36295 329.418 0.897943 335.432 0.0229461ZM348.063 15.8735C346.521 9.8336 340.406 6.16331 334.352 7.63818C330.378 8.60818 327.232 11.6387 326.113 15.5737C324.994 19.5087 326.074 23.7388 328.942 26.6587C331.81 29.5735 336.024 30.7234 339.976 29.6685C345.998 28.0634 349.605 21.9135 348.063 15.8735Z"/><path d="M472.827 1.7594L472.86 7.49377L454.15 7.4801L453.648 7.47913L453.649 7.98108L453.659 15.5758L453.66 16.0719L454.156 16.0748L470.754 16.1764L470.694 21.733L454.351 21.8502L453.926 21.8531L453.86 22.2731C453.719 23.1734 453.65 24.7444 453.609 26.3033C453.589 27.0891 453.575 27.8815 453.563 28.5983C453.552 29.3165 453.542 29.9563 453.529 30.442L453.517 30.9557L454.03 30.9547L473.79 30.9352V36.8092C464.723 37.0025 455.144 36.8122 446.02 36.7633L446.073 1.73499L472.827 1.7594Z"/><path d="M386.373 1.64001C390.391 7.37729 395.875 17.217 399.62 23.4818L400.033 24.1722L400.47 23.4965C405.019 16.447 409.369 8.9204 413.657 1.69861L419.997 1.79724C419.959 7.6613 420.015 13.5146 420.072 19.3646C420.129 25.2138 420.185 31.06 420.146 36.9193L412.959 36.8402L412.97 30.7504V30.7494L412.965 16.1146L412.964 14.2494L412.031 15.8656C411.374 17.0041 410.541 18.6274 409.599 20.3959C408.652 22.1736 407.586 24.1149 406.452 25.9232C405.316 27.7349 404.122 29.3933 402.922 30.6146C401.749 31.8077 400.638 32.5108 399.626 32.6234C398.803 32.2734 397.817 31.4006 396.738 30.1312C395.629 28.8255 394.475 27.168 393.357 25.4164C391.113 21.8974 389.081 18.1028 387.849 16.0433L386.914 14.4808L386.92 16.3011L386.982 36.7679L379.854 36.8109L379.913 1.65271L386.373 1.64001Z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M335.432 0.0229461C340.438 -0.157053 344.931 0.693404 349.134 3.58838C353.135 6.34338 355.864 10.5885 356.711 15.3735C357.633 20.5033 356.365 25.788 353.213 29.9429C349.506 34.7779 345.064 36.4028 339.353 37.2378C334.05 37.5577 328.49 36.5379 324.175 33.2729C320.313 30.3329 317.803 25.9581 317.215 21.1382C316.552 16.2932 317.837 11.3828 320.789 7.48779C324.739 2.36295 329.418 0.897943 335.432 0.0229461ZM348.063 15.8735C346.521 9.8336 340.406 6.16331 334.352 7.63818C330.378 8.60818 327.232 11.6387 326.113 15.5737C324.994 19.5087 326.074 23.7388 328.942 26.6587C331.81 29.5735 336.024 30.7234 339.976 29.6685C345.998 28.0634 349.605 21.9135 348.063 15.8735Z"/><path d="M293.871 1.68579C293.882 12.9891 294.116 25.5896 293.745 36.7678C291.683 36.8047 289.55 36.7673 287.468 36.7561C281.993 30.7351 275.07 21.7992 269.778 15.3333L268.892 14.2522L268.89 15.6497L268.865 36.8147L261.549 36.8186C261.524 33.611 261.345 25.9719 261.286 18.592C261.254 14.6833 261.256 10.8364 261.333 7.72681C261.371 6.17164 261.428 4.80526 261.508 3.71021C261.57 2.86866 261.644 2.20886 261.728 1.75122L267.985 1.84595C273.963 8.90578 279.822 16.069 285.557 23.3254L286.451 24.4553L286.45 23.0149L286.434 1.63794L293.871 1.68579Z"/><path d="M227.887 1.72268C230.369 1.70513 232.919 1.74811 235.42 1.76955C235.444 13.4393 235.404 25.1136 235.302 36.7881L227.773 36.8457L227.887 1.72268Z"/></g><g id="piano"><path d="M565.899 22.0485C571.601 21.8961 577.303 21.9 583.004 22.0621C583.5 29.534 583.219 39.6637 583.219 47.2555V93.6656L583.254 124.321C583.257 126.555 583.325 129.834 583.311 133.111C583.298 136.194 583.211 139.198 582.937 141.19C581.045 141.471 577.774 141.538 574.436 141.491C571.152 141.445 567.853 141.289 565.846 141.136C565.647 134.811 565.677 127.936 565.794 121.63C566.1 105.048 565.84 88.2857 565.65 71.5485C565.461 54.967 565.34 38.4075 565.899 22.0485Z" fill="#04549B"/><path d="M534.395 52.703C539.893 52.5484 545.394 52.5287 550.892 52.6415C551.071 54.4282 551.126 57.1507 551.129 59.9374C551.131 61.4424 551.12 62.958 551.108 64.3427C551.096 65.7255 551.083 66.9805 551.084 67.9598L551.094 99.0048L551.07 125.524C551.072 127.496 551.135 130.732 551.108 133.909C551.082 136.866 550.976 139.696 550.683 141.349C548.766 141.477 545.252 141.686 541.886 141.626C540.083 141.594 538.337 141.485 536.91 141.252C536.196 141.135 535.573 140.989 535.069 140.811C534.65 140.664 534.338 140.501 534.122 140.335C534.057 139.606 533.995 137.918 533.939 135.465C533.878 132.781 533.823 129.215 533.777 125.068C533.685 116.774 533.624 106.162 533.599 95.6542C533.574 85.1464 533.584 74.744 533.633 66.87C533.658 62.9327 533.693 59.6287 533.738 57.2606C533.76 56.0763 533.785 55.1288 533.813 54.454C533.827 54.116 533.84 53.8501 533.855 53.6591C533.862 53.5633 533.87 53.4907 533.876 53.4393C533.88 53.4116 533.882 53.396 533.883 53.3895C533.922 53.282 533.996 53.1712 534.118 53.0262C534.186 52.9452 534.291 52.8269 534.395 52.703Z" fill="#00C1E6"/><path d="M517.036 81.3859C518.533 81.398 519.981 81.4755 521.162 81.6691C521.752 81.7658 522.263 81.8896 522.674 82.0421C523.009 82.1668 523.255 82.3028 523.424 82.4406C523.765 84.8121 523.889 89.1217 523.917 93.5704C523.945 98.1136 523.877 102.754 523.854 105.531C523.76 117.191 524.142 129.835 523.673 141.393C519.08 141.435 514.491 141.411 509.898 141.322C509.583 131.997 509.742 121.87 509.742 112.306L509.729 108.177C509.68 100.118 509.475 89.6127 509.929 81.631C511.52 81.5528 514.319 81.3639 517.036 81.3859Z" fill="#FCCE02"/></g></svg>
-    </div>
+    <div id="idleWordmark">Louvor JA <b id="idlePiano">PIANO</b></div>
   </div>
   <div id="bars">
     <div style="background:#04549B"></div>
     <div style="background:#00C1E6"></div>
     <div style="background:#FCCE02"></div>
   </div>
-  <p id="idleMsg">Aguardando conteúdo…</p>
+  <p id="idleMsg">Aguardando transmissão…</p>
   <!-- F3.3u: status de conexão visível no idle (sem ?debug) + dica da tecla vermelha -->
   <p id="idleConn" style="font-size:1.8vh;opacity:.45;margin:1.2vh 0 0 0"></p>
   </div>
@@ -2524,6 +2538,7 @@ var qrcode = function() {
 }));
 
 </script>
+<script src="network-mirror.js"></script>
 <script>
 function dlog(m1,m2,m3){try{console.log('[P]',m1,m2!==undefined?String(m2):'',m3!==undefined?String(m3):'')}catch(e){}}
 // window.onerror → visível no DevTools, reportado ao sender e ao Glitchtip
@@ -2539,8 +2554,10 @@ window.addEventListener('unhandledrejection',function(ev){
 });
 const $=id=>document.getElementById(id);
 const qs=new URLSearchParams(location.search);
+// Painel da tela compartilhada: não conecta; recebe do pai por postMessage.
+const SHARE_PANE=qs.get('obsPane')==='1';
 // F3.3q: versão no idle (canto inferior direito) — ?v= override ou padrão.
-window.__PALCO_APPV__=window.__PALCO_APPV__||'0.3.1';
+window.__PALCO_APPV__=window.__PALCO_APPV__||'0.4.0';
 (function(){var el=$('idleVer');if(!el)return;var qv=qs.get('v')||window.__PALCO_APPV__||'';if(qv){el.textContent='PIANO LouvorJA Palco · receiver v'+qv;return}fetch('appinfo.json').then(function(r){return r.json()}).then(function(j){el.textContent='PIANO LouvorJA Palco · receiver v'+(j.version||'?')}).catch(function(){fetch('config.xml').then(function(r){return r.text()}).then(function(t){var m2=t.match(/version="([^"]+)"/);el.textContent='PIANO LouvorJA Palco · receiver v'+(m2?m2[1]:'?')}).catch(function(){el.textContent='PIANO LouvorJA Palco'})})})()
 // webOS: ares-launch -p '{"host":"..."}' chega em PalmSystem.launchParams,
 // NÃO na query string. Merge dos dois (query string tem prioridade).
@@ -2560,15 +2577,15 @@ function proxyUrl(original){
   // caminho antes de qualquer comparação/use (404 silencioso caso contrário).
   try{ original=decodeURIComponent(original) }catch(e){}
   // WT-5f cloud: no modo relay a TV carrega DIRETO da rede do operador web
-  // (a URL vem absoluta, ex. http://192.168.x.x:5173/...). O proxy :7080 é
-  // do sender APK — se não está rodando, 502 e bg nunca carrega.
+  // (a URL vem absoluta, ex. http://192.168.x.x:5173/...). O proxy local é
+  // do sender — se não está rodando, 502 e bg nunca carrega.
   if(cloudMode)return original;
-  // Qualquer porta do MESMO sender é local: 7080 (Principal), 7082 (TV 2),
-  // 7084... Antes só aceitava :7080; bg vindo de slot :7082 era proxyado
-  // de volta e falhava → receiver caía no bg-12 (caso real 26/08).
+  // Qualquer porta do MESMO sender é local: 47080 (Principal), 47082 (TV 2),
+  // 47084... (4980/4982 no APK; 7080/7082 no APK antigo). Antes só aceitava a principal; bg vindo de
+  // outro slot era proxyado de volta e falhava → bg-12 (caso real 26/08).
   if(original.startsWith('http://'+host+':'))return original;
   if(original.startsWith('http://')||original.startsWith('https://')){
-    return `http://${host}:7080/proxy?url=${encodeURIComponent(original)}`;
+    return `http://${host}:${senderHttpPort()}/proxy?url=${encodeURIComponent(original)}`;
   }
   return original;
 }
@@ -2584,13 +2601,59 @@ function setStatus(t,err){const s=$('status');s.textContent=t;
   s.className=err?'err':''}
 
 
+// Identifica a TV para o celular (módulo Palco): plataforma, versão e um id
+// estável por aparelho. Nome opcional em localStorage 'palcoName'.
+function palcoPlatform(){
+  var ua=navigator.userAgent||'',path=location.pathname||'';
+  if(window.PalmSystem||window.webOS||window.webOSSystem||/Web0S|webOS/i.test(ua)||/\/webos(\/|$)/i.test(path))return 'webos';
+  if(window.tizen||/Tizen/i.test(ua)||/\/tizen(\/|$)/i.test(path))return 'tizen';
+  if(/Android/i.test(ua)||/\/androidtv(\/|$)/i.test(path))return 'androidtv';
+  return 'browser';
+}
+function palcoId(){
+  try{var id=localStorage.getItem('palcoId');
+    if(!id){id=Date.now().toString(36)+Math.random().toString(36).slice(2,8);localStorage.setItem('palcoId',id)}
+    return id}catch(e){return ''}
+}
+function sendHello(){
+  var el=$('idleVer'),m=el&&el.textContent.match(/v([\d.]+)/);
+  var msg={v:2,type:'hello',role:'tv',platform:palcoPlatform(),id:palcoId()};
+  if(m)msg.version=m[1];
+  try{var n=localStorage.getItem('palcoName');if(n)msg.name=n}catch(e){}
+  sendEvent(msg);
+}
+// Identificar: nome grande por cima de tudo por alguns segundos, para o
+// operador saber qual TV é qual no salão.
+var identifyTimer=null;
+function showIdentify(name,slot){
+  var el=document.getElementById('palcoIdentify');
+  if(!el){el=document.createElement('div');el.id='palcoIdentify';
+    el.style.cssText='position:fixed;inset:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,.82);color:#fff;font-family:sans-serif;text-align:center;border:1.2vh solid #f5b301;box-sizing:border-box';
+    document.body.appendChild(el)}
+  el.innerHTML='';
+  var t=document.createElement('div');t.style.cssText='font-size:11vh;font-weight:700;padding:0 4vw';
+  t.textContent=name||'Palco';el.appendChild(t);
+  if(slot){var s=document.createElement('div');s.style.cssText='font-size:4.5vh;opacity:.8;margin-top:2vh';
+    s.textContent=slot;el.appendChild(s)}
+  el.style.display='flex';
+  clearTimeout(identifyTimer);
+  identifyTimer=setTimeout(function(){el.style.display='none'},6000);
+}
 function sendEvent(m){try{if(ws&&ws.readyState===1)ws.send(JSON.stringify(m))}catch(e){}}
 
 // ===== Auto-descoberta (F3.3): acha o sender (APK) na sub-rede =====
 // Prioridade: launchParams/query host > último host válido (localStorage)
-// > scan da sub-rede via GET :7080/status (resposta JSON identifica sender).
+// > scan da sub-rede via GET :47080/status (resposta JSON identifica sender).
+// O APK novo usa 4980/4981 (faixa própria, sem conflito com o desktop);
+// APK e computadores ainda não atualizados seguem na 7080/7081: todas são procuradas.
+const DEFAULT_WS_PORT='47081';
+const APK_WS_PORT='4981';
+const LEGACY_WS_PORT='7081';
 let host=qs.get('host')||localStorage.getItem('palcoHost')||location.hostname||'';
-let port=qs.get('port')||localStorage.getItem('palcoPort')||'7081';
+let port=qs.get('port')||localStorage.getItem('palcoPort')||DEFAULT_WS_PORT;
+// Porta do link é definitiva; a salva pode ser de outro transmissor.
+const portFixed=!!qs.get('port');
+function senderHttpPort(){return (parseInt(port,10)||Number(DEFAULT_WS_PORT))-1}
 
 function probeHttp(ip,httpPort){
   return new Promise(res=>{
@@ -2601,17 +2664,24 @@ function probeHttp(ip,httpPort){
   });
 }
 function probeSender(ip){
-  // Porta digitada pode ser WS (7081) OU HTTP do slot (a UI mostra a HTTP,
-  // ex.: slot 1 = 7082/7083). Tenta a dupla HTTP/WS em ambos os sentidos:
-  // p como HTTP, p-1 (p=WS) e p+1 (p=HTTP→WS=p+1).
-  var p=parseInt(port,10)||7081;
+  // Sem porta no link: a atual, a do desktop, a do APK e a antiga, em paralelo; vence a primeira da lista que responder.
+  var tries=[port];
+  if(!portFixed)[DEFAULT_WS_PORT,APK_WS_PORT,LEGACY_WS_PORT].forEach(function(p){if(tries.indexOf(p)<0)tries.push(p)});
+  return Promise.all(tries.map(function(p){return probePair(ip,parseInt(p,10)||Number(DEFAULT_WS_PORT))})).then(function(found){
+    for(var i=0;i<found.length;i++)if(found[i])return normalizePort(ip,null,found[i]);
+    return null;
+  });
+}
+function probePair(ip,p){
+  // Porta digitada pode ser WS (47081) OU HTTP do slot (a UI mostra a HTTP,
+  // ex.: slot 1 = 47082/47083). Tenta a dupla HTTP/WS em ambos os sentidos:
+  // p como HTTP, p-1 (p=WS) e p+1 (p=HTTP→WS=p+1). Devolve a porta WS.
   return probeHttp(ip,p).then(function(j){
-    if(j)return normalizePort(ip,j,p+1);        // p era HTTP → WS=p+1
+    if(j)return p+1;                            // p era HTTP → WS=p+1
     return probeHttp(ip,p-1).then(function(j2){
-      if(j2)return normalizePort(ip,j2,p);      // p era WS (HTTP=p-1)
+      if(j2)return p;                           // p era WS (HTTP=p-1)
       return probeHttp(ip,p+1).then(function(j3){
-        if(j3)return normalizePort(ip,j3,p+1);  // p era HTTP, WS=p+1
-        return null;
+        return j3?p+1:null;                     // p era HTTP, WS=p+1
       });
     });
   });
@@ -2626,13 +2696,15 @@ async function scanSubnet(){
   // presume /24 da própria TV (rede típica de igreja)
   // file:// (IPK/simulador local): hostname vazio — tenta últimos hosts
   // conhecidos da sub-rede salva antes do default. Cobertura p/ IPK.
-  let me=location.hostname;
+  let me=window.__PALCO_LOCAL_IP || location.hostname;
   if(!me){
     const saved=localStorage.getItem('palcoHost');
     me=saved||'192.168.1.100';
   }
   const prefix=me.split('.').slice(0,3).join('.');
-  const base=host?host.split('.').slice(0,3).join('.'):prefix;
+  const base=host&&/^(?:\d{1,3}\.){3}\d{1,3}$/.test(host)
+  ?host.split('.').slice(0,3).join('.')
+  :prefix;
   const ips=[];
   for(let i=1;i<255;i++)ips.push(base+'.'+i);
   if(host)ips.unshift(host); // último conhecido primeiro
@@ -2647,11 +2719,33 @@ async function scanSubnet(){
   return null;
 }
 
+var palcoScanGeneration=0;
+
+window.__palcoLocalIpReady=function(){
+  var ip=window.__PALCO_LOCAL_IP||'';
+  var ipv4=/^(?:\d{1,3}\.){3}\d{1,3}$/;
+
+  if(cloudMode || qs.get('host') || !ipv4.test(ip))return;
+  if(ws && ws.readyState===1)return;
+
+  var prefix=ip.split('.').slice(0,3).join('.');
+
+  // Preserva uma conexão já direcionada à mesma rede.
+  if(host && ipv4.test(host) &&
+     host.split('.').slice(0,3).join('.')===prefix)return;
+
+  // Reinicia a descoberta usando a rede informada pelo Flutter.
+  host='';
+  connect();
+};
+
 function connect(){
   dlog('connect() host="'+host+'"');
   if(!host){
+    var currentScan=++palcoScanGeneration;
     setStatus('procurando LouvorJA na rede…');
     scanSubnet().then(found=>{
+      if(currentScan!==palcoScanGeneration || cloudMode)return;
       if(found){host=found;localStorage.setItem('palcoHost',host);doConnect()}
       else{setStatus('nenhum sender encontrado — tentando de novo…',true);retry()}
     });
@@ -2673,7 +2767,8 @@ function connect(){
   // Tenta WS direto no host salvo; se falhar 1x sem nunca abrir, host é stale.
   function directTry(){
     var opened=false;
-    var t=setTimeout(function(){if(!opened){dlog('WS direto falhou — host stale');localStorage.removeItem('palcoHost');host='';connect()}},3000);
+    var attemptedHost=host;
+    var t=setTimeout(function(){if(!opened && host===attemptedHost && !cloudMode){dlog('WS direto falhou — host stale');localStorage.removeItem('palcoHost');host='';connect()}},3000);
     try{var w=new WebSocket('ws://'+host+':'+port+'/palco');
       w.onopen=function(){opened=true;clearTimeout(t);try{w.close()}catch(e){};doConnect()};
       w.onerror=function(){};
@@ -2684,6 +2779,7 @@ function connect(){
 // Watchdog: sender morreu/fechou com mídia tocando → para NA HORA.
 // Sem isso o áudio continuava até o fim depois do app cair.
 function stopMediaOnServerLoss(){
+  try{cleanMirror.stop()}catch(e){}
   try{
     const a=$('audio'); if(a&&!a.paused){a.pause();a.currentTime=0}
     const v=$('video'); if(v&&!v.paused){v.pause();v.removeAttribute('src');v.style.display='none';v.load()}
@@ -2696,6 +2792,7 @@ function doConnect(){
   setStatus('conectando '+host+':'+port+'…');
   try{ws=new WebSocket('ws://'+host+':'+port+'/palco')}catch(e){retry();return}
   ws.onopen=()=>{tries=0;dlog('WS OPEN '+host);setStatus('● '+host);
+    sendHello();
     if(window.__hideSplash)window.__hideSplash(); // F3.3j: splash sai no connect
     localStorage.setItem('palcoHost',host);
     localStorage.setItem('palcoPort',port)};
@@ -2821,6 +2918,7 @@ function showCloudPair(code){
 }
 function hideCloudPair(){var el=document.getElementById('cloudPair');if(el)el.remove()}
 function showIdle(msg){
+  if(ytId)stopYoutube(); // YouTube sai de cena junto com o resto
   $('idleMsg').textContent=msg;
   $('idle').classList.remove('hidden');
   // volta pro BG do palco (personalizado) — música "saiu de cena"
@@ -2834,18 +2932,66 @@ function showIdle(msg){
   $('text').textContent='';$('footer').textContent='';
   // F3.3ac: remove estilos de projeção (caixa/sombra) — senão a caixa
   // vazia continuava desenhada no idle após "Limpar projeção".
-  $('text').classList.remove('box-on','shadow-on','box-off','shadow-off','cover-on');
+  $('text').classList.remove('box-on','shadow-on','box-off','shadow-off','cover-on','title-box-on');
   $('text').style.removeProperty('--box-bg');
   $('text').style.removeProperty('--box-border');
   $('text').style.removeProperty('--ts');
 }
 function hideIdle(){$('idle').classList.add('hidden')}
+// YouTube: o app da TV roda de arquivo local e o embed do YouTube recusa
+// essa origem (erro 153). O player fica numa página servida pelo
+// transmissor (http://host:porta-1/youtube) e é controlado por postMessage.
+let ytFrame=null,ytId=null,ytPaused=false;
+// Espelho limpo (WebRTC, mesmo network-mirror.js do desktop): o transmissor
+// manda o vídeo pronto; a TV só exibe, sem player nem áudio próprio.
+const cleanMirror=window.PianoNetworkMirror?PianoNetworkMirror.createReceiver({
+  send:sendEvent,
+  attach:function(stream){
+    if(ytId)stopYoutube();
+    const video=$('video');video.pause();video.removeAttribute('src');video.srcObject=stream;
+    video.style.display='block';video.style.objectFit='contain';
+    hideIdle();hideNp();playVideoWithFallback();
+  },
+  clear:function(){hideMuteBadge();const video=$('video');if(video.srcObject){video.pause();video.srcObject=null;video.style.display='none'}},
+  error:function(message){showIdle(message)},
+}):{active:function(){return false},stop:function(){},start:function(){},handle:function(){return Promise.resolve()}};
+function ytPost(cmd){
+  try{if(ytFrame&&ytFrame.contentWindow)ytFrame.contentWindow.postMessage(Object.assign({louvorjaYoutube:'command'},cmd),'*')}catch(e){}
+}
+function stopYoutube(){ytId=null;if(ytFrame){ytFrame.remove();ytFrame=null}}
+function handleYoutube(m){
+  if(m.action==='captions'){ytPost({action:'captions',captionsHidden:m.captionsHidden===true});return}
+  if(m.action==='stop'){stopYoutube();showIdle('Aguardando transmissão…');return}
+  if(m.youtubeId&&/^[\w-]{11}$/.test(m.youtubeId)){
+    ytPaused=m.paused===true;
+    if(m.youtubeId===ytId&&ytFrame){ytPost({positionMs:m.positionMs,paused:ytPaused});return}
+    stopYoutube();ytId=m.youtubeId;
+    hideIdle();hideNp();
+    ['video','audio'].forEach(function(id){const media=$(id);media.pause();media.removeAttribute('src');media.load();media.style.display='none'});
+    const f=document.createElement('iframe');
+    f.id='youtubeProjection';f.setAttribute('allow','autoplay; encrypted-media');
+    f.style.cssText='position:fixed;inset:0;width:100%;height:100%;border:0;z-index:100;background:#000';
+    f.src='http://'+host+':'+(parseInt(port,10)-1)+'/youtube?v='+ytId+'&t='+(Number(m.positionMs)||0)+
+      '&paused='+(ytPaused?1:0)+'&muted='+(connectionAudioMuted?1:0)+'&cc='+(m.captionsHidden===true?0:1);
+    document.body.appendChild(f);ytFrame=f;
+    return;
+  }
+  if(!ytId)return;
+  if(m.action==='pause'||m.action==='play'){ytPaused=m.action==='pause';ytPost({paused:ytPaused});return}
+  if(m.action==='seek'){ytPost({positionMs:Number(m.positionMs)||0,paused:ytPaused})}
+}
+window.addEventListener('message',function(e){
+  const d=e.data;
+  if(!d||d.louvorjaYoutube!==true||!ytId)return;
+  if(d.error!=null){stopYoutube();showIdle('YouTube: não foi possível reproduzir este vídeo.')}
+  else if(d.state===0){stopYoutube();showIdle('Aguardando transmissão…');sendEvent({v:2,type:'ended',media:'video'})}
+});
 // F3.3e: fallback de cover — sem capa ou capa quebrada = logo da org.
 // Cover relativo (images/... ou covers/...) resolve contra / do sender.
 function coverUrl(cover){
   if(!cover) return null;
   if(cover.startsWith('http://')||cover.startsWith('https://'))return proxyUrl(cover);
-  return proxyUrl('http://'+(host||location.hostname)+':7080/'+cover.replace(/^\/+/,''));
+  return proxyUrl('http://'+(host||location.hostname)+':'+senderHttpPort()+'/'+cover.replace(/^\/+/,''));
 }
 function showNp(title,sub,cover){
   hideIdle();$('text').style.display='none';
@@ -2868,7 +3014,7 @@ function hideNp(){
 }
 
 const a0=$('audio');
-a0.onended=()=>showIdle('Aguardando conteúdo…');
+a0.onended=()=>showIdle('Aguardando transmissão…');
 let pendingPlay=false;
 // F3.3h: autoplay-mudo — o browser bloqueia play() COM SOM sem gesto, mas
 // permite MUDO. Estratégia Chromecast-like: play com som falha → retry
@@ -2876,6 +3022,9 @@ let pendingPlay=false;
 // positionMs); primeiro gesto só DESMUTA (áudio já estava rodando, entra
 // no ponto certo). Badge discreto, não bloqueia a tela.
 let mutedUnlock=false;
+// Saída de áudio do transmissor: 'player' deixa o som só no celular/computador
+// e a TV mostra o vídeo sem som (mesma regra do receiver do desktop).
+let connectionAudioMuted=false;
 function showMuteBadge(){
   if($('muteBadge'))return;
   const b=document.createElement('div');
@@ -2891,13 +3040,13 @@ function hideMuteBadge(){const b=$('muteBadge');if(b)b.remove()}
 function unmuteNow(){
   mutedUnlock=false;hideMuteBadge();
   a0.muted=false;
-  const vv=$('video'); if(vv){vv.muted=false; if(vv.paused&&vv.src)vv.play().catch(function(){})}
+  const vv=$('video'); if(vv){vv.muted=connectionAudioMuted; if(vv.paused&&vv.src)vv.play().catch(function(){})}
   a0.play().then(()=>sendEvent({v:1,type:'unlocked'})).catch(()=>{});
   sendEvent({v:1,type:'unlocked'});
 }
 function playVideoWithFallback(){
   const v=$('video');
-  v.muted=false;
+  v.muted=connectionAudioMuted;
   v.play().then(()=>{
     dlog('VID PLAY OK (som)');
   }).catch(e=>{
@@ -2956,8 +3105,42 @@ window.addEventListener('keydown',function(e){
     sendEvent({v:2,type:'remote-key',key:k===37?'prev':'next'});
   }
 },true);
+// ===== Teclas do controle (webOS, Tizen, Android TV) =====
+// webOS/Tizen entregam as coloridas como keyCode 403-406. O WebView do
+// Android TV entrega keyCode 0 com o nome em e.key ("ColorF0Red"...).
+function remoteColor(e){
+  var k=e.keyCode,n=e.key||'';
+  if(k===403||n==='ColorF0Red')return 'red';
+  if(k===404||n==='ColorF1Green')return 'green';
+  if(k===405||n==='ColorF2Yellow')return 'yellow';
+  if(k===406||n==='ColorF3Blue')return 'blue';
+  return '';
+}
+// Caractere que a tecla põe na entrada de IP/código ('' = nenhum).
+// Controle não tem ":" — a AMARELA digita ":" (IP:PORTA).
+var IP_MAX=21; // 255.255.255.255:65535
+function ipKeyChar(e){
+  var k=e.keyCode;
+  if(e.key===':'||remoteColor(e)==='yellow')return ':';
+  if(k>=48&&k<=57)return String(k-48);
+  if(k>=96&&k<=105)return String(k-96);                    // numpad
+  if(k===46||k===190||k===110)return '.';
+  if(k>=65&&k<=90)return String.fromCharCode(k);           // código cloud
+  return '';
+}
+// Tizen só entrega coloridas, dígitos e mídia ao app depois do registerKey.
+// Tecla que o modelo não tem lança erro — registra as outras mesmo assim.
+function registerTizenKeys(){
+  var t=window.tizen&&window.tizen.tvinputdevice;
+  if(!t)return;
+  var names=['ColorF0Red','ColorF1Green','ColorF2Yellow','ColorF3Blue',
+    '0','1','2','3','4','5','6','7','8','9',
+    'MediaPlay','MediaPause','MediaPlayPause','MediaStop','MediaRewind','MediaFastForward'];
+  for(var i=0;i<names.length;i++){try{t.registerKey(names[i])}catch(e){}}
+}
+registerTizenKeys();
 // ===== F3.3u: entrada de IP manual via controle remoto =====
-// Tecla vermelha (403) ou "0" no idle abre overlay pra digitar IP do celular.
+// Tecla vermelha ou "0" no idle abre overlay pra digitar IP do celular.
 var ipEntry=null;
 function openIpEntry(){
   if(ipEntry)return;
@@ -2965,10 +3148,10 @@ function openIpEntry(){
   ipEntry.style.cssText='position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.85);'+
     'display:flex;align-items:center;justify-content:center';
   ipEntry.innerHTML='<div style="text-align:center">'+
-    '<p style="font-size:2.6vh;opacity:.7;margin:0 0 2vh 0">CÓDIGO (6 letras/números) · IP · IP:PORTA — ou SÓ A PORTA (ex.: 7081) para achar o LouvorJA na rede</p>'+
+    '<p style="font-size:2.6vh;opacity:.7;margin:0 0 2vh 0">CÓDIGO (6 letras/números) · IP · IP:PORTA — ou SÓ A PORTA (ex.: 47081) para achar o LouvorJA na rede</p>'+
     '<p id="ipVal" style="font-size:6vh;font-weight:700;letter-spacing:.5vh;margin:0;'+
     'min-height:7vh;border-bottom:.3vh solid #FCCE02;padding:0 4vh"></p>'+
-    '<p style="font-size:1.8vh;opacity:.5;margin:2vh 0 0 0">OK conectar · vermelha cancelar · backspace apaga</p></div>';
+    '<p style="font-size:1.8vh;opacity:.5;margin:2vh 0 0 0">OK conectar · amarela digita : · vermelha cancelar · backspace apaga</p></div>';
   document.body.appendChild(ipEntry);
   ipEntry._val='';
   renderIp();
@@ -3020,27 +3203,22 @@ function submitIp(){
 }
 window.addEventListener('keydown',function(e){
   var k=e.keyCode;
+  var color=remoteColor(e);
   if(ipEntry){
     e.preventDefault();e.stopPropagation();
+    var ch=ipKeyChar(e);
     if(k===13||k===4063){submitIp()}                       // OK / Enter
     else if(k===461||k===8||k===463){                      // backspace
       ipEntry._val=ipEntry._val.slice(0,-1);renderIp()}
-    else if(k>=48&&k<=57){                                  // 0-9
-      if(ipEntry._val.length<15){ipEntry._val+=String(k-48);renderIp()}}
-    else if(k>=96&&k<=105){                                 // numpad
-      if(ipEntry._val.length<15){ipEntry._val+=String(k-96);renderIp()}}
-    else if(k===46||k===190||k===110){                      // ponto
-      if(ipEntry._val.length<15){ipEntry._val+='.';renderIp()}}
-    // WT-5d: letras A-Z — código cloud é 6 alfanuméricos. keyCode 65-90.
-    else if(k>=65&&k<=90){
-      if(ipEntry._val.length<15){ipEntry._val+=String.fromCharCode(k);renderIp()}}
-    else if(k===403||k===27){closeIpEntry()}                // vermelha/ESC
+    else if(ch){
+      if(ipEntry._val.length<IP_MAX){ipEntry._val+=ch;renderIp()}}
+    else if(color==='red'||k===27){closeIpEntry()}          // vermelha/ESC
     return;
   }
   // Azul (406): refresh do Palco. Útil quando sender/slot reiniciou ou
   // replay ficou stale — força novo boot, scan e conexão WS sem alterar
   // host/porta persistidos. Vermelho continua reservado a IP/porta manual.
-  if(k===406){
+  if(color==='blue'){
     e.preventDefault();
     try{if(ws)ws.close()}catch(e){}
     location.reload();
@@ -3048,16 +3226,17 @@ window.addEventListener('keydown',function(e){
   }
   // Verde (404): para qualquer mídia local e volta ao idle. O operador da
   // TV recupera a tela sem depender do sender (ex: mídia presa/congelada).
-  if(k===404){
+  if(color==='green'){
     e.preventDefault();
     {const a=$('audio');a.pause();a.removeAttribute('src');a.load();}
     {const v=$('video');v.pause();v.removeAttribute('src');v.style.display='none';v.load();}
     hideNp();
-    showIdle('Aguardando conteúdo…');
+    showIdle('Aguardando transmissão…');
     return;
   }
-  // tecla vermelha (403) no idle abre entrada de IP
-  if(k===403&&document.getElementById('idle')&&!document.getElementById('idle').classList.contains('hidden')){
+  // vermelha ou "0" no idle abre entrada de IP (controle sem colorida)
+  var idleEl=document.getElementById('idle');
+  if((color==='red'||k===48||k===96)&&idleEl&&!idleEl.classList.contains('hidden')){
     e.preventDefault();openIpEntry();
   }
 },true);
@@ -3065,8 +3244,109 @@ document.addEventListener('pointerdown',function(){if(mutedUnlock||pendingPlay)u
 
 function isAudioUrl(u){return /\.(mp3|m4a|aac|wav|ogg|flac)(\?|$)/i.test(u||'')}
 
+// ===== Tela compartilhada (paridade com o receiver do navegador) =====
+// Dois painéis isolados (iframes desta mesma página com ?obsPane=1); só a
+// página principal tem WebSocket. Página local (file://) é origem opaca:
+// a conversa com os painéis é por postMessage.
+const shareState={enabled:false,frames:[],ready:[],messages:[new Map(),new Map()],active:[false,false]};
+const SHARE_CONTENT=['projection','timer','clock','video','audio'];
+function shareLayout(){
+  const both=shareState.active[0]&&shareState.active[1];
+  shareState.frames.forEach(function(frame,index){
+    frame.style.display=shareState.active[index]?'block':'none';
+    frame.style.width=both?'50%':'100%';
+    frame.style.left=both&&index===1?'50%':'0';
+  });
+}
+function shareRemember(m,index){
+  const messages=shareState.messages[index];
+  if(m.type==='idle'||m.type==='stop-all'){['projection','timer','clock','video','audio','audio-sync','video-sync'].forEach(function(t){messages.delete(t)});}
+  messages.set(m.type,Object.assign({},m,{obsPane:false}));
+  if(SHARE_CONTENT.indexOf(m.type)>=0)shareState.active[index]=true;
+  if(m.type==='idle'||m.type==='stop-all')shareState.active[index]=false;
+}
+function shareSend(m,index){
+  const frame=shareState.frames[index];
+  if(shareState.ready[index]&&frame&&frame.contentWindow)frame.contentWindow.postMessage(Object.assign({},m,{obsPane:false}),'*');
+}
+function shareEnable(enabled){
+  if(shareState.enabled===enabled)return;
+  shareState.enabled=enabled;
+  if(!enabled){
+    const wrap=document.getElementById('shareView');if(wrap)wrap.remove();
+    shareState.frames=[];shareState.ready=[];shareState.messages[1].clear();shareState.active[1]=false;
+    shareState.messages[0].forEach(function(message){handle(message)});
+    return;
+  }
+  ['video','audio'].forEach(function(id){try{$(id).pause()}catch(e){}});
+  const wrap=document.createElement('div');wrap.id='shareView';
+  wrap.style.cssText='position:fixed;inset:0;background:#000;z-index:100000';
+  document.body.appendChild(wrap);
+  [0,1].forEach(function(index){
+    const frame=document.createElement('iframe');
+    const sep=location.search?'&':'?';
+    frame.style.cssText='position:absolute;top:0;height:100%;border:0;background:#000';
+    frame.onload=function(){
+      if(!shareState.enabled||shareState.frames[index]!==frame)return;
+      shareState.ready[index]=true;
+      shareState.messages[index].forEach(function(message){shareSend(message,index)});
+    };
+    shareState.frames[index]=frame;
+    frame.src=location.pathname+location.search+sep+'obsPane=1';
+    wrap.appendChild(frame);
+  });
+  shareLayout();
+}
+if(SHARE_PANE)window.addEventListener('message',function(e){
+  if(e.source===window.parent&&e.data&&typeof e.data==='object')handle(e.data);
+});
+
 function handle(m){
   if(m.v!==1&&m.v!==2)return;
+  // Tela de espera sem logo (opção do transmissor, reenviada ao conectar).
+  if(m.type==='idleStyle'){document.documentElement.classList.toggle('idle-no-logo',m.hideLogo===true);return;}
+  // Ações por palco (módulo Palco do celular): só este receiver recebe.
+  if(m.type==='identify'){showIdentify(m.name,m.slotLabel);return;}
+  if(m.type==='rename'){
+    var nn=String(m.name||'').trim().slice(0,40);
+    try{if(nn)localStorage.setItem('palcoName',nn);else localStorage.removeItem('palcoName')}catch(e){}
+    sendHello();return;}
+  if(m.type==='reload'){try{if(ws)ws.close()}catch(e){};location.reload();return;}
+  if(m.type==='moveTo'){
+    var np=parseInt(m.port,10);
+    if(np>=1024&&np<=65535&&String(np)!==String(port)){
+      dlog('moveTo porta '+np);
+      port=String(np);try{localStorage.setItem('palcoPort',port)}catch(e){}
+      tries=0;try{if(ws)ws.close()}catch(e){}
+    }
+    return;}
+  if(m.type==='audioOutput'){
+    connectionAudioMuted=m.mode==='player';
+    $('video').muted=connectionAudioMuted;$('audio').muted=connectionAudioMuted;
+    if(ytId)ytPost({action:'mute',muted:connectionAudioMuted});
+    if(connectionAudioMuted)hideMuteBadge();
+    return;
+  }
+  if(m.type==='video'&&typeof m.connectionsMuted==='boolean'){connectionAudioMuted=m.connectionsMuted;$('video').muted=connectionAudioMuted}
+  if(m.type==='video'&&typeof m.connectionsMuted==='boolean'&&ytId&&!m.youtubeId)ytPost({action:'mute',muted:connectionAudioMuted});
+  // Compartilhar (projeção independente): a tela se divide em dois painéis;
+  // o da esquerda segue a transmissão e o da direita mostra o módulo.
+  if(!SHARE_PANE){
+    // tvShare = esta TV (projeção independente); obsShare é da transmissão
+    // inteira (conexão OBS) e chega várias vezes por segundo: obedecer a ele
+    // desfazia a tela dividida da TV (piscava).
+    if(m.type==='tvShare'){shareEnable(m.enabled===true);return;}
+    if(m.type==='obsShare')return;
+    const index=m.obsPane===true?1:0;
+    if(m.type==='obsIdle'||m.type==='bgPalco'){
+      shareRemember(m,0);shareRemember(m,1);
+      if(shareState.enabled){shareSend(m,0);shareSend(m,1);return;}
+    }else{
+      shareRemember(m,index);
+      if(shareState.enabled){shareSend(m,index);shareLayout();return;}
+      if(index===1)return;
+    }
+  }
   // HARDENING culto: mídia externa (vídeo/pdf/ppt/áudio da liturgia) viva
   // tem prioridade absoluta no slot. Mensagens de texto/projection não podem
   // renderizar por cima (cross-bleed owner — caso real 28/08: random sobre
@@ -3090,6 +3370,22 @@ function handle(m){
     window.__mediaLastSeen=0;
     if(window.__videoAudioActive){window.__videoAudioActive=false}
     try{const _v2=$('video'),_a2=$('audio');_v2.pause();_v2.removeAttribute('src');_v2.load();_a2.pause()}catch(e){}
+  }
+  if(m.type==='mirror-signal'){
+    cleanMirror.handle(m).catch(function(){showIdle('Não foi possível conectar a transmissão do player.')});return;
+  }
+  if(m.type==='video'&&m.cleanMirror&&typeof m.mirrorSession==='string'){
+    if(ytId)stopYoutube();hideIdle();hideNp();
+    $('audio').pause();
+    cleanMirror.start(m.mirrorSession);return;
+  }
+  if(cleanMirror.active()){
+    if(m.type==='audio'&&!m.url)return;
+    if(m.type==='video'&&!m.url&&!m.youtubeId){
+      if(m.action==='stop'){cleanMirror.stop();showIdle('Aguardando transmissão…')}
+      return;
+    }
+    if(['video','audio','projection','timer','clock','idle','bgPalco','stop-all'].includes(m.type))cleanMirror.stop();
   }
   switch(m.type){
     case 'projection':
@@ -3115,6 +3411,7 @@ function handle(m){
       $('veil').style.display=m.text?'':'none';
       $('text').innerHTML=m.text||'';
       $('text').classList.toggle('cover-on',m.isCover===true);
+      $('text').classList.toggle('title-box-on',m.isCover===true&&m.titleTextBox===true);
       // F3.3o: fontSize/fontWeight dinâmicos (settings do operador).
       {const t=$('text');
         if(typeof m.fontSize==='number')
@@ -3191,7 +3488,8 @@ function handle(m){
         else{t.classList.add('shadow-on');
           if(typeof m.shadowBlur==='number')
             t.style.setProperty('--ts',`0 ${Math.max(1,m.shadowBlur/3)}vh ${m.shadowBlur}vh rgba(0,0,0,${m.shadowIntensity!=null?m.shadowIntensity:0.8})`)}
-        if(m.textBox){t.classList.add('box-on');
+        // Capa: caixinha só com titleTextBox (como o receiver do desktop).
+        if(m.isCover===true?m.titleTextBox===true:m.textBox){t.classList.add('box-on');
           if(typeof m.boxOpacity==='number')t.style.setProperty('--box-bg',m.boxOpacity);
           t.style.setProperty('--box-border',
             m.boxBorder?`${m.boxBorder.width||0.4}vh solid ${m.boxBorder.color||'rgba(255,255,255,.25)'}`:'none')}
@@ -3241,7 +3539,7 @@ function handle(m){
             const apply=()=>{try{a.currentTime=m.positionMs/1000}catch(e){}};
             if(a.readyState>=1)apply();else a.addEventListener('loadedmetadata',apply,{once:true});
           }
-          a.onended=()=>{hideNp();showIdle('Aguardando conteúdo…')};
+          a.onended=()=>{hideNp();showIdle('Aguardando transmissão…')};
           // Áudio "desconhecido" (sem metadados): now-playing padrão do
           // Palco — sem nome de arquivo, com a animação eq indicando que
           // há algo tocando. Mesmo visual do "só áudio" do app.
@@ -3277,7 +3575,7 @@ function handle(m){
       if(m.action==='pause'&&!a.paused)a.pause();
       if(m.action==='stop'){
         if(!window.__videoAudioActive){
-          a.pause();a.currentTime=0;showIdle('Aguardando conteúdo…')}}
+          a.pause();a.currentTime=0;showIdle('Aguardando transmissão…')}}
       if(m.action==='seek'){
         const target=(m.position||m.positionMs/1000||0);
         // só corrige se o desvio for perceptível — micro-sync causa stutter
@@ -3288,6 +3586,7 @@ function handle(m){
       }
       break}
     case 'video':{
+      if(m.youtubeId||(ytId&&!m.url)){handleYoutube(m);break}
       const v=$('video');
       // MP3/áudio puro no canal video (popup liturgia manda dual): redireciona
       // pro fluxo de áudio — now-playing + EQ + bg (tela preta NUNCA).
@@ -3298,7 +3597,7 @@ function handle(m){
         const av=$('audio');const next=proxyUrl(m.url);
         window.__videoAudioActive=true;
         if(av.src!==next){av.src=next;
-          av.onended=()=>{hideNp();showIdle('Aguardando conteúdo…')};
+          av.onended=()=>{hideNp();showIdle('Aguardando transmissão…')};
           showNp(m.title||'Reproduzindo áudio', m.subtitle||'', m.cover||'');
           $('bg').src=m.background?proxyUrl(m.background):'bg-fallback.png';}
         if(m.action!=='pause'&&m.action!=='stop'&&av.paused)playWithFallback();
@@ -3314,7 +3613,7 @@ function handle(m){
       {const a=$('audio');
         if(a&&a.src&&!(m.action==='stop'&&!m.url)){a.pause();a.removeAttribute('src');a.load()}}
       if(m.action==='stop'){v.pause();v.removeAttribute('src');v.style.display='none';
-        v.load();showIdle('Aguardando conteúdo…');
+        v.load();showIdle('Aguardando transmissão…');
         sendEvent({v:2,type:'ended',media:'video'});break}
       if(m.url){v.src=proxyUrl(m.url);v.style.display='';
         // Sync inicial (padrão F3.3g do áudio): positionMs aplicado antes
@@ -3324,7 +3623,7 @@ function handle(m){
           if(v.readyState>=1)apply();else v.addEventListener('loadedmetadata',apply,{once:true});
         }
         v.onended=()=>{v.style.display='none';v.removeAttribute('src');v.load();
-          showIdle('Aguardando conteúdo…');
+          showIdle('Aguardando transmissão…');
           sendEvent({v:2,type:'ended',media:'video'})}}
       if(m.action==='seek'){
         const target=(m.position||((m.positionMs||0)/1000)||0);
@@ -3378,7 +3677,7 @@ function handle(m){
       t._iv=setInterval(()=>{rem-=1000;elapsed+=1000;render();
         if(mode!=='chrono'&&rem<=0){clearInterval(t._iv)}},1000);
       break}
-    case 'idle':showIdle(m.msg||'Aguardando conteúdo…');break;
+    case 'idle':showIdle(m.msg||'Aguardando transmissão…');break;
     // F3.3x: sender informa IP DA TV (visto pelo socket) + SLOT onde ela
     // caiu — identificação visível pro operador conferir com o app.
     case 'youare':{
@@ -3403,6 +3702,7 @@ function handle(m){
 // WT-5d: boot — código cloud na query (?code=XXXXXX) ou salvo em localStorage
 // tem prioridade; sem código, segue o fluxo local (scan do sender na LAN).
 (function(){
+  if(SHARE_PANE)return;
   var bootCode=(qs.get('code')||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
   if(!bootCode){try{bootCode=localStorage.getItem('palcoCloudCode')||''}catch(e){}}
   if(bootCode&&bootCode.length===6){cloudConnect(bootCode);return}
@@ -3428,6 +3728,7 @@ function handle(m){
     }catch(e){dlog('AUTO-RELAUNCH erro: '+e.message)}
   }
   document.addEventListener('visibilitychange',function(){
+    if(SHARE_PANE)return;
     var wasConnected=ws&&ws.readyState===1;
     if(document.hidden&&wasConnected){
       if(relaunchTimer)clearTimeout(relaunchTimer);

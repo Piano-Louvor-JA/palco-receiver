@@ -7,7 +7,7 @@ casca de empacotamento `.wgt` (config.xml + assets). Requer Tizen **4.0+**.
 
 ```
 tizen/
-├── config.xml      # widget config (id com.piano.louvorja.palco, required_version 4.0)
+├── config.xml      # widget config (app id PalcoLvrJA.palco, required_version 4.0)
 ├── index.html      # MESMO receiver do webos/ — sincronizar sempre (ver regra abaixo)
 ├── signature1.xml / author-signature.xml  # assinaturas dev (regenerar com seu certificado)
 ├── bg-fallback.png, splash-palco.jpg, logo-*  # assets (paths RELATIVOS no HTML)
@@ -42,7 +42,7 @@ loja, sem custo.
    sdb connect <ip-da-tv>:<porta-do-devmode>   # porta mostrada no app Dev Mode
    sdb devices                                  # deve listar a TV
    sdb install com.piano.louvorja.palco_X.Y.Z.wgt
-   sdb shell execute_app com.piano.louvorja.palco
+   sdb shell execute_app PalcoLvrJA.palco
    ```
 
 > **Limitação honesta**: o Dev Mode da TV exige **renovação periódica**
@@ -89,6 +89,14 @@ Bump de `config.xml` version a cada release junto do receiver.
 - `tizen/index.html` == `webos/index.html` — sincronizar sempre
 - Keycodes Tizen no remote: RETURN=10009, OK/Enter=13, PLAY=415,
   PAUSE=19, STOP=413, setas 37-40 (diferem do webOS — ver receiver)
+- Coloridas (403-406), dígitos e mídia só chegam depois de
+  `tizen.tvinputdevice.registerKey` (o receiver registra ao abrir) e exigem
+  o privilégio `tv.inputdevice` no `config.xml`
+- `package` do `config.xml` = exatamente 10 letras/números e
+  `id` = `<package>.<nome>`; o CI e `tests/tizen-config.test.mjs` conferem
+- Assine o `.wgt` com certificado **Samsung** (autor + distribuidor com o
+  DUID da TV) no Certificate Manager; o certificado Tizen genérico é
+  recusado em TV Samsung ("Invalid certificate chain")
 
 ## Debug
 

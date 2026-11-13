@@ -2,18 +2,23 @@
 <widget xmlns="http://www.w3.org/ns/widgets"
         xmlns:tizen="http://tizen.org/ns/widgets"
         id="http://pianolouvorja.com.br/palco"
-        version="1.0.8"
+        version="0.4.0"
         viewmodes="fullscreen"
         width="1920" height="1080">
 
-  <tizen:application id="com.piano.louvorja.palco"
-                      package="compianolouvorja"
+  <!-- Tizen exige package com exatamente 10 letras/números e
+       id = <package>.<nome>; fora disso a TV recusa ("Load archive info fail"). -->
+  <tizen:application id="PalcoLvrJA.palco"
+                      package="PalcoLvrJA"
                       required_version="4.0"
                       launch_mode="single"/>
 
   <content src="index.html"/>
   <feature name="http://tizen.org/feature/internet"/>
   <feature name="http://tizen.org/feature/network.wifi"/>
+  <tizen:privilege name="http://tizen.org/privilege/internet"/>
+  <!-- registerKey: coloridas, dígitos e mídia só chegam ao app com isto -->
+  <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
 
   <access origin="*" subdomains="true"/>
   <tizen:allow-navigation>*</tizen:allow-navigation>

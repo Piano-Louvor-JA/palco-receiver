@@ -58,7 +58,7 @@ jobs:
           cd palco-updates
           mkdir -p "$V"
           cp ../webos/index.html "$V/index.html"
-          for f in bg-fallback.png splash-palco.jpg splash-palco.png logo-piano-louvorja.png logo-louvor-ja.svg; do
+          for f in network-mirror.js bg-fallback.png splash.jpg splash-palco.jpg splash-palco.png logo-piano-louvorja.png logo-louvor-ja.svg; do
             if [ -f "../webos/$f" ]; then cp "../webos/$f" "$V/"; fi
           done
           printf '{\n  "version": "%s",\n  "html": "%s/index.html"\n}\n' "$V" "$V" > manifest.json

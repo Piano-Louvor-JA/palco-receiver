@@ -23,8 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Paridade receiver (webos vs androidtv vs tizen) + contrato de protocolo
-        run: node --test tests/parity-protocol.test.mjs
+      - name: Paridade receiver (webos vs androidtv vs tizen) + contrato de protocolo + portas do sender
+        run: node --test tests/parity-protocol.test.mjs tests/sender-port.test.mjs tests/remote-keys.test.mjs tests/tizen-config.test.mjs
 
       - name: Paridade receiver (webos vs androidtv)
         run: |
@@ -188,7 +188,11 @@ jobs:
           assert r.tag.endswith('widget'), 'root widget'
           ns = '{http://tizen.org/ns/widgets}'
           app = r.find(f'{ns}application')
-          assert app is not None and app.get('id') == 'com.piano.louvorja.palco'
+          import re
+          assert app is not None
+          pkg = app.get('package') or ''
+          assert re.fullmatch(r'[A-Za-z0-9]{10}', pkg), f'package invalido: {pkg}'
+          assert re.fullmatch(re.escape(pkg) + r'\.[A-Za-z0-9]+', app.get('id') or ''), 'id deve ser <package>.<nome>'
           print('config.xml OK:', app.get('id'))
           "
 
