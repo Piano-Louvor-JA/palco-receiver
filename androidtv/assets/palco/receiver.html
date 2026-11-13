@@ -2891,6 +2891,7 @@ function showCloudPair(code){
 }
 function hideCloudPair(){var el=document.getElementById('cloudPair');if(el)el.remove()}
 function showIdle(msg){
+  if(ytId)stopYoutube(); // YouTube sai de cena junto com o resto
   $('idleMsg').textContent=msg;
   $('idle').classList.remove('hidden');
   // volta pro BG do palco (personalizado) — música "saiu de cena"
@@ -2910,6 +2911,41 @@ function showIdle(msg){
   $('text').style.removeProperty('--ts');
 }
 function hideIdle(){$('idle').classList.add('hidden')}
+// YouTube: o app da TV roda de arquivo local e o embed do YouTube recusa
+// essa origem (erro 153). O player fica numa página servida pelo
+// transmissor (http://host:porta-1/youtube) e é controlado por postMessage.
+let ytFrame=null,ytId=null,ytPaused=false;
+function ytPost(cmd){
+  try{if(ytFrame&&ytFrame.contentWindow)ytFrame.contentWindow.postMessage(Object.assign({louvorjaYoutube:'command'},cmd),'*')}catch(e){}
+}
+function stopYoutube(){ytId=null;if(ytFrame){ytFrame.remove();ytFrame=null}}
+function handleYoutube(m){
+  if(m.action==='captions'){ytPost({action:'captions',captionsHidden:m.captionsHidden===true});return}
+  if(m.action==='stop'){stopYoutube();showIdle('Aguardando transmissão…');return}
+  if(m.youtubeId&&/^[\w-]{11}$/.test(m.youtubeId)){
+    ytPaused=m.paused===true;
+    if(m.youtubeId===ytId&&ytFrame){ytPost({positionMs:m.positionMs,paused:ytPaused});return}
+    stopYoutube();ytId=m.youtubeId;
+    hideIdle();hideNp();
+    ['video','audio'].forEach(function(id){const media=$(id);media.pause();media.removeAttribute('src');media.load();media.style.display='none'});
+    const f=document.createElement('iframe');
+    f.id='youtubeProjection';f.setAttribute('allow','autoplay; encrypted-media');
+    f.style.cssText='position:fixed;inset:0;width:100%;height:100%;border:0;z-index:100;background:#000';
+    f.src='http://'+host+':'+(parseInt(port,10)-1)+'/youtube?v='+ytId+'&t='+(Number(m.positionMs)||0)+
+      '&paused='+(ytPaused?1:0)+'&muted='+(connectionAudioMuted?1:0)+'&cc='+(m.captionsHidden===true?0:1);
+    document.body.appendChild(f);ytFrame=f;
+    return;
+  }
+  if(!ytId)return;
+  if(m.action==='pause'||m.action==='play'){ytPaused=m.action==='pause';ytPost({paused:ytPaused});return}
+  if(m.action==='seek'){ytPost({positionMs:Number(m.positionMs)||0,paused:ytPaused})}
+}
+window.addEventListener('message',function(e){
+  const d=e.data;
+  if(!d||d.louvorjaYoutube!==true||!ytId)return;
+  if(d.error!=null){stopYoutube();showIdle('YouTube: não foi possível reproduzir este vídeo.')}
+  else if(d.state===0){stopYoutube();showIdle('Aguardando transmissão…');sendEvent({v:2,type:'ended',media:'video'})}
+});
 // F3.3e: fallback de cover — sem capa ou capa quebrada = logo da org.
 // Cover relativo (images/... ou covers/...) resolve contra / do sender.
 function coverUrl(cover){
@@ -3247,10 +3283,12 @@ function handle(m){
   if(m.type==='audioOutput'){
     connectionAudioMuted=m.mode==='player';
     $('video').muted=connectionAudioMuted;$('audio').muted=connectionAudioMuted;
+    if(ytId)ytPost({action:'mute',muted:connectionAudioMuted});
     if(connectionAudioMuted)hideMuteBadge();
     return;
   }
   if(m.type==='video'&&typeof m.connectionsMuted==='boolean'){connectionAudioMuted=m.connectionsMuted;$('video').muted=connectionAudioMuted}
+  if(m.type==='video'&&typeof m.connectionsMuted==='boolean'&&ytId&&!m.youtubeId)ytPost({action:'mute',muted:connectionAudioMuted});
   // Compartilhar (projeção independente): a tela se divide em dois painéis;
   // o da esquerda segue a transmissão e o da direita mostra o módulo.
   if(!SHARE_PANE){
@@ -3492,6 +3530,7 @@ function handle(m){
       }
       break}
     case 'video':{
+      if(m.youtubeId||(ytId&&!m.url)){handleYoutube(m);break}
       const v=$('video');
       // MP3/áudio puro no canal video (popup liturgia manda dual): redireciona
       // pro fluxo de áudio — now-playing + EQ + bg (tela preta NUNCA).
