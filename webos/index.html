@@ -76,6 +76,9 @@
   #bg{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;
     filter:none;transition:opacity .8s}
   #bg[src=""]{opacity:0}
+  /* Quadro de slide/imagem (PDF, PPT, imagens da liturgia): o conteúdo
+     aparece inteiro, como no operador, e aceita o zoom (frameView). */
+  #bg.frame-slide{object-fit:contain;background:#000;transform-origin:50% 50%}
   #bgPalco{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover}
   #veil{position:fixed;inset:0;background:transparent;pointer-events:none}
   #content{position:fixed;top:0;left:0;right:0;bottom:0;padding:3vh 4vw;
@@ -2617,7 +2620,8 @@ function palcoId(){
 }
 function sendHello(){
   var el=$('idleVer'),m=el&&el.textContent.match(/v([\d.]+)/);
-  var msg={v:2,type:'hello',role:'tv',platform:palcoPlatform(),id:palcoId()};
+  // caps: aplica o zoom do quadro sozinho (o app manda só zoom + posição)
+  var msg={v:2,type:'hello',role:'tv',platform:palcoPlatform(),id:palcoId(),caps:['frameView']};
   if(m)msg.version=m[1];
   try{var n=localStorage.getItem('palcoName');if(n)msg.name=n}catch(e){}
   sendEvent(msg);
@@ -3301,8 +3305,22 @@ if(SHARE_PANE)window.addEventListener('message',function(e){
   if(e.source===window.parent&&e.data&&typeof e.data==='object')handle(e.data);
 });
 
+// Zoom do quadro (imagem/PDF/PPT) igual ao do operador: escala + deslocamento
+// em fração da tela, animado para não andar em "degraus".
+function applyFrameView(view,anim){
+  var bgEl=$('bg');if(!bgEl)return;
+  var z=view&&Number(view.zoom)>1?Math.min(5,Number(view.zoom)):1;
+  var x=view&&isFinite(Number(view.x))?Number(view.x):0;
+  var y=view&&isFinite(Number(view.y))?Number(view.y):0;
+  var ms=Math.max(0,Math.min(400,Number(anim)||0));
+  bgEl.style.transition=ms?'transform '+ms+'ms cubic-bezier(0.2,0.7,0.3,1),opacity .8s':'';
+  bgEl.style.transform=z===1&&!x&&!y?'':'translate('+(x*100)+'%,'+(y*100)+'%) scale('+z+')';
+}
 function handle(m){
   if(m.v!==1&&m.v!==2)return;
+  if(m.type==='frameView'){if($('bg').className.indexOf('frame-slide')>=0)applyFrameView(m.view,m.view&&m.view.anim);return;}
+  // outro conteúdo no fundo: o zoom do quadro anterior não vale para ele
+  if(m.type==='video'||m.type==='audio'||m.type==='idle'||m.type==='bgPalco'||m.type==='stop-all'||m.type==='timer')applyFrameView(null,0);
   // Tela de espera sem logo (opção do transmissor, reenviada ao conectar).
   if(m.type==='idleStyle'){document.documentElement.classList.toggle('idle-no-logo',m.hideLogo===true);return;}
   // Ações por palco (módulo Palco do celular): só este receiver recebe.
@@ -3396,6 +3414,10 @@ function handle(m){
         t.style.display='none';$('text').style.display='';}}
       const bgEl=$('bg');
       bgEl.onerror=()=>{bgEl.onerror=null;bgEl.src='bg-fallback.png'};
+      // Quadro de slide/imagem (data:image do app): conteúdo inteiro, com o zoom do operador.
+      const isFrameSlide=m.frameSlide===true||(typeof m.background==='string'&&m.background.indexOf('data:image/')===0);
+      bgEl.classList.toggle('frame-slide',isFrameSlide);
+      applyFrameView(isFrameSlide?m.view:null,0);
       if(m.background){bgEl.src=proxyUrl(m.background);bgEl.style.opacity='';document.body.style.background=''}
       // Sem bg na mensagem: usa o BG configurado no app (bgPalco — enviado
       // ao ligar o palco). Só se NÃO houver bg configurado cai no fallback
