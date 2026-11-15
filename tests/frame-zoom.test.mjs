@@ -18,7 +18,7 @@ function frameView() {
 }
 
 test('a TV avisa no hello que aplica o zoom do quadro sozinha', () => {
-  assert.match(html, /type:'hello',role:'tv',platform:palcoPlatform\(\),id:palcoId\(\),caps:\['frameView'\]/)
+  assert.match(html, /type:'hello',role:'tv',platform:palcoPlatform\(\),id:palcoId\(\),caps:\[[^\]]*'frameView'/)
 })
 
 test('quadro de slide aparece inteiro (contain) e aceita zoom', () => {

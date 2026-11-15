@@ -2621,7 +2621,8 @@ function palcoId(){
 function sendHello(){
   var el=$('idleVer'),m=el&&el.textContent.match(/v([\d.]+)/);
   // caps: aplica o zoom do quadro sozinho (o app manda só zoom + posição)
-  var msg={v:2,type:'hello',role:'tv',platform:palcoPlatform(),id:palcoId(),caps:['frameView']};
+  // heartbeat: responde ao `beat` do servidor (conexão viva dos dois lados)
+  var msg={v:2,type:'hello',role:'tv',platform:palcoPlatform(),id:palcoId(),caps:['frameView','heartbeat']};
   if(m)msg.version=m[1];
   try{var n=localStorage.getItem('palcoName');if(n)msg.name=n}catch(e){}
   sendEvent(msg);
@@ -2801,12 +2802,15 @@ function doConnect(){
   dlog('doConnect '+host+':'+port);
   setStatus('conectando '+host+':'+port+'…');
   try{ws=new WebSocket('ws://'+host+':'+port+'/palco')}catch(e){retry();return}
-  ws.onopen=()=>{tries=0;dlog('WS OPEN '+host);setStatus('● '+host);
+  ws.onopen=()=>{tries=0;lastServerMessage=Date.now();serverBeats=false;dlog('WS OPEN '+host);setStatus('● '+host);
     sendHello();
     if(window.__hideSplash)window.__hideSplash(); // F3.3j: splash sai no connect
     localStorage.setItem('palcoHost',host);
     localStorage.setItem('palcoPort',port)};
-  ws.onmessage=ev=>{try{handle(JSON.parse(ev.data))}catch(e){}};
+  ws.onmessage=ev=>{lastServerMessage=Date.now();try{var m=JSON.parse(ev.data);
+    // sinal de vida do servidor: responde e não vai para a tela
+    if(m&&m.type==='beat'){serverBeats=true;try{ws.send('{"v":2,"type":"beat"}')}catch(e){}return}
+    handle(m)}catch(e){}};
   ws.onclose=()=>{dlog('WS CLOSE');stopMediaOnServerLoss();showIdle();
     // host falhou 3x → esquece e re-escaneia (IP mudou)
     if(tries>=3){localStorage.removeItem('palcoHost');host='';tries=0}
@@ -2816,8 +2820,35 @@ function doConnect(){
 function retry(){
   const wait=Math.min(1000*Math.pow(2,tries++),10000);
   setStatus('reconectando em '+Math.round(wait/1000)+'s',true);
-  setTimeout(connect,wait);
+  clearTimeout(retryTimer);
+  retryTimer=setTimeout(function(){retryTimer=null;connect()},wait);
 }
+
+// ===== Conexão viva dos dois lados =====
+// O computador manda `beat` a cada 10 s e cobra a resposta (e procura a TV
+// que caiu pela rede). Daqui, se ficar 30 s sem ouvir nada dele, a conexão
+// está pendurada (Wi-Fi caiu, PC dormiu): fecha e reconecta na hora, sem
+// esperar o WebView perceber. Computador antigo não manda `beat`: o vigia
+// fica desligado. Só vale para a conexão local (o relay cloud tem a sua).
+var lastServerMessage=0,serverBeats=false,retryTimer=null;
+var SERVER_SILENCE_MS=30000;
+function reconnectNow(reason){
+  dlog('reconectando: '+reason);
+  var dead=ws;ws=null;
+  if(dead){dead.onclose=null;dead.onmessage=null;dead.onerror=null;try{dead.close()}catch(e){}}
+  stopMediaOnServerLoss();showIdle();
+  clearTimeout(retryTimer);retryTimer=null;
+  connect();
+}
+function checkServerAlive(now){
+  if(!cloudMode&&ws&&ws.readyState===1&&serverBeats&&now-lastServerMessage>SERVER_SILENCE_MS){reconnectNow('computador sem resposta');return true}
+  return false;
+}
+setInterval(function(){checkServerAlive(Date.now())},5000);
+// Rede voltou ou o app voltou à frente: tenta já, sem esperar a próxima vez.
+function reconnectSoon(){if(retryTimer&&!cloudMode){clearTimeout(retryTimer);retryTimer=null;connect()}}
+window.addEventListener('online',reconnectSoon);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)reconnectSoon()});
 
 // ===== WT-5d: modo cloud — TV conecta no relay WS da API =====
 // Mesmo protocolo do receiver browser (browser/index.html): código de 6 chars
