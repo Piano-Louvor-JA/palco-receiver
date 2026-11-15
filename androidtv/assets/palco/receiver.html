@@ -2650,11 +2650,15 @@ function sendEvent(m){try{if(ws&&ws.readyState===1)ws.send(JSON.stringify(m))}ca
 // > scan da sub-rede via GET :47080/status (resposta JSON identifica sender).
 // O APK novo usa 4980/4981 (faixa própria, sem conflito com o desktop);
 // APK e computadores ainda não atualizados seguem na 7080/7081: todas são procuradas.
+// Palco do desktop separado da Transmissão (OBS/navegador): porta própria
+// 47180/47181, sem o token da rede. A 47081 é a Transmissão (e o Palco dos
+// desktops ainda não atualizados): continua sendo procurada depois.
+const PALCO_WS_PORT='47181';
 const DEFAULT_WS_PORT='47081';
 const APK_WS_PORT='4981';
 const LEGACY_WS_PORT='7081';
 let host=qs.get('host')||localStorage.getItem('palcoHost')||location.hostname||'';
-let port=qs.get('port')||localStorage.getItem('palcoPort')||DEFAULT_WS_PORT;
+let port=qs.get('port')||localStorage.getItem('palcoPort')||PALCO_WS_PORT;
 // Porta do link é definitiva; a salva pode ser de outro transmissor.
 const portFixed=!!qs.get('port');
 function senderHttpPort(){return (parseInt(port,10)||Number(DEFAULT_WS_PORT))-1}
@@ -2669,8 +2673,10 @@ function probeHttp(ip,httpPort){
 }
 function probeSender(ip){
   // Sem porta no link: a atual, a do desktop, a do APK e a antiga, em paralelo; vence a primeira da lista que responder.
-  var tries=[port];
-  if(!portFixed)[DEFAULT_WS_PORT,APK_WS_PORT,LEGACY_WS_PORT].forEach(function(p){if(tries.indexOf(p)<0)tries.push(p)});
+  // A porta salva vence (ex.: TV movida para outra conexão do Palco), menos a
+  // 47081 antiga: aí o Palco do desktop atualizado vem antes da Transmissão.
+  var tries=portFixed||String(port)!==DEFAULT_WS_PORT?[port]:[PALCO_WS_PORT,port];
+  if(!portFixed)[PALCO_WS_PORT,DEFAULT_WS_PORT,APK_WS_PORT,LEGACY_WS_PORT].forEach(function(p){if(tries.indexOf(p)<0)tries.push(p)});
   return Promise.all(tries.map(function(p){return probePair(ip,parseInt(p,10)||Number(DEFAULT_WS_PORT))})).then(function(found){
     for(var i=0;i<found.length;i++)if(found[i])return normalizePort(ip,null,found[i]);
     return null;
@@ -3152,7 +3158,7 @@ function openIpEntry(){
   ipEntry.style.cssText='position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.85);'+
     'display:flex;align-items:center;justify-content:center';
   ipEntry.innerHTML='<div style="text-align:center">'+
-    '<p style="font-size:2.6vh;opacity:.7;margin:0 0 2vh 0">CÓDIGO (6 letras/números) · IP · IP:PORTA — ou SÓ A PORTA (ex.: 47081) para achar o LouvorJA na rede</p>'+
+    '<p style="font-size:2.6vh;opacity:.7;margin:0 0 2vh 0">CÓDIGO (6 letras/números) · IP · IP:PORTA — ou SÓ A PORTA (ex.: 47181) para achar o LouvorJA na rede</p>'+
     '<p id="ipVal" style="font-size:6vh;font-weight:700;letter-spacing:.5vh;margin:0;'+
     'min-height:7vh;border-bottom:.3vh solid #FCCE02;padding:0 4vh"></p>'+
     '<p style="font-size:1.8vh;opacity:.5;margin:2vh 0 0 0">OK conectar · amarela digita : · vermelha cancelar · backspace apaga</p></div>';
