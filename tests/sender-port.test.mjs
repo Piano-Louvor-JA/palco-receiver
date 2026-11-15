@@ -19,6 +19,7 @@ function receiver({ query = '', saved = {}, open = [] } = {}) {
   const store = new Map(Object.entries(saved))
   const asked = []
   const context = vm.createContext({
+    setTimeout, clearTimeout, AbortController,
     URLSearchParams,
     qs: new URLSearchParams(query),
     location: { hostname: '', protocol: 'file:' },

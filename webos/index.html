@@ -2,6 +2,14 @@
 <html lang="pt-BR">
 <head>
 <script>
+// Installed before the main script: parse/runtime errors must be visible too.
+function palcoDiag(kind,code){
+  try{if(window.PalcoDiagnostic)window.PalcoDiagnostic.postMessage(kind+(typeof code==='number'?':'+Math.abs(code):''))}catch(e){}
+}
+window.addEventListener('error',function(e){palcoDiag('javascript_error',e.lineno||0)});
+window.addEventListener('unhandledrejection',function(){palcoDiag('javascript_rejection')});
+</script>
+<script>
 /* X-Client-Platform: telemetria da API. IPK/WGT/APK nao trazem a pasta no path. */
 (function(){
   var ua=navigator.userAgent||'';
@@ -2652,36 +2660,98 @@ const LEGACY_WS_PORT='7081';
 let host=qs.get('host')||localStorage.getItem('palcoHost')||location.hostname||'';
 let port=qs.get('port')||localStorage.getItem('palcoPort')||DEFAULT_WS_PORT;
 // Porta do link é definitiva; a salva pode ser de outro transmissor.
-const portFixed=!!qs.get('port');
+var portFixed=!!qs.get('port');
+var manualHost=!!qs.get('host');
+var palcoScanGeneration=0;
+var localRetryTimer=null;
+var statusSequence=0;
+var statusPending={};
+var statusReported={};
+var statusBrowserChecked=false;
+function statusDiagnostic(kind){
+  if(statusReported[kind])return;
+  statusReported[kind]=true;
+  if(typeof palcoDiag==='function')palcoDiag(kind);
+}
+function nativeStatusMessage(op,id,ip,httpPort){
+  window.PalcoNetwork.postMessage(JSON.stringify({op:op,id:id,
+    session:window.__PALCO_NATIVE_SESSION,ip:ip,port:httpPort}));
+}
+window.__palcoStatusResult=function(session,id,result){
+  if(session!==window.__PALCO_NATIVE_SESSION || !statusPending[id])return;
+  statusDiagnostic('native_'+result.kind);
+  statusPending[id](result.kind==='ok'?{unlocked:result.unlocked}:null);
+};
+function cancelStatusProbes(){
+  Object.keys(statusPending).forEach(function(id){statusPending[id](null)});
+}
+function checkBrowserStatus(ip,httpPort){
+  if(statusBrowserChecked || !window.__PALCO_NETWORK_DIAGNOSTICS)return;
+  statusBrowserChecked=true;
+  // Differential diagnostic only; its result never gates discovery or WS.
+  var abort=typeof AbortController!=='undefined'?new AbortController():null;
+  var done=false;
+  var timer=setTimeout(function(){done=true;if(abort)abort.abort();statusDiagnostic('browser_status_timeout')},2000);
+  Promise.resolve().then(function(){return fetch('http://'+ip+':'+httpPort+'/status',abort?{signal:abort.signal}:undefined)})
+    .then(function(r){return r.json()})
+    .then(function(){if(!done)statusDiagnostic('browser_status_readable')})
+    .catch(function(){if(!done)statusDiagnostic('browser_status_blocked_or_network')})
+    .then(function(){done=true;clearTimeout(timer)});
+}
 function senderHttpPort(){return (parseInt(port,10)||Number(DEFAULT_WS_PORT))-1}
 
 function probeHttp(ip,httpPort){
   return new Promise(res=>{
-    fetch('http://'+ip+':'+httpPort+'/status')
-      .then(function(r){return r.json()})
-      .then(function(j){res(j&&('unlocked' in j)?j:null)})
-      .catch(function(){res(null)});
+    if(httpPort<1024 || httpPort>65535){res(null);return}
+    var id=String(++statusSequence),done=false;
+    var native=!!(window.PalcoNetwork && window.__PALCO_NATIVE_SESSION);
+    var abort=typeof AbortController!=='undefined'?new AbortController():null;
+    function finish(value){
+      if(done)return;done=true;clearTimeout(timer);delete statusPending[id];
+      if(native){try{nativeStatusMessage('cancel',id)}catch(e){}}
+      else if(abort)abort.abort();
+      if(native && value)checkBrowserStatus(ip,httpPort);
+      res(value);
+    }
+    var timer=setTimeout(function(){statusDiagnostic(native?'bridge_timeout':'http_timeout');finish(null)},1800);
+    statusPending[id]=finish;
+    if(native){
+      try{nativeStatusMessage('status',id,ip,httpPort)}catch(e){statusDiagnostic('bridge_error');finish(null)}
+      return;
+    }
+    Promise.resolve().then(function(){return fetch('http://'+ip+':'+httpPort+'/status',abort?{signal:abort.signal}:undefined)})
+      .then(function(r){if(r.ok===false){statusDiagnostic('http_status');return null}return r.json()})
+      .then(function(j){finish(j&&typeof j==='object'&&('unlocked' in j)?{unlocked:j.unlocked===true}:null)})
+      .catch(function(){if(!done)statusDiagnostic('http_network_or_policy');finish(null)});
   });
 }
-function probeSender(ip){
+function probeSender(ip,commit,selectedPort){
+  var generation=palcoScanGeneration;
   // Sem porta no link: a atual, a do desktop, a do APK e a antiga, em paralelo; vence a primeira da lista que responder.
-  var tries=[port];
+  var tries=[selectedPort||port];
   if(!portFixed)[DEFAULT_WS_PORT,APK_WS_PORT,LEGACY_WS_PORT].forEach(function(p){if(tries.indexOf(p)<0)tries.push(p)});
   return Promise.all(tries.map(function(p){return probePair(ip,parseInt(p,10)||Number(DEFAULT_WS_PORT))})).then(function(found){
-    for(var i=0;i<found.length;i++)if(found[i])return normalizePort(ip,null,found[i]);
+    for(var i=0;i<found.length;i++)if(found[i]){
+      if(commit===false)return {ip:ip,port:String(found[i])};
+      if(generation!==palcoScanGeneration || cloudMode)return null;
+      return normalizePort(ip,null,found[i]);
+    }
     return null;
   });
 }
 function probePair(ip,p){
+  var generation=palcoScanGeneration;
   // Porta digitada pode ser WS (47081) OU HTTP do slot (a UI mostra a HTTP,
   // ex.: slot 1 = 47082/47083). Tenta a dupla HTTP/WS em ambos os sentidos:
   // p como HTTP, p-1 (p=WS) e p+1 (p=HTTP→WS=p+1). Devolve a porta WS.
   return probeHttp(ip,p).then(function(j){
+    if(generation!==palcoScanGeneration || cloudMode)return null;
     if(j)return p+1;                            // p era HTTP → WS=p+1
     return probeHttp(ip,p-1).then(function(j2){
+      if(generation!==palcoScanGeneration || cloudMode)return null;
       if(j2)return p;                           // p era WS (HTTP=p-1)
       return probeHttp(ip,p+1).then(function(j3){
-        return j3?p+1:null;                     // p era HTTP, WS=p+1
+        return j3?p+2:null;                     // HTTP encontrado em p+1 → WS=p+2
       });
     });
   });
@@ -2692,6 +2762,8 @@ function normalizePort(ip,j,wsPort){
 }
 
 async function scanSubnet(){
+  var generation=palcoScanGeneration,scanPort=port;
+  statusReported={};
   dlog('scan iniciado');
   // presume /24 da própria TV (rede típica de igreja)
   // file:// (IPK/simulador local): hostname vazio — tenta últimos hosts
@@ -2702,37 +2774,42 @@ async function scanSubnet(){
     me=saved||'192.168.1.100';
   }
   const prefix=me.split('.').slice(0,3).join('.');
-  const base=host&&/^(?:\d{1,3}\.){3}\d{1,3}$/.test(host)
+  const base=!window.__PALCO_LOCAL_IP&&host&&/^(?:\d{1,3}\.){3}\d{1,3}$/.test(host)
   ?host.split('.').slice(0,3).join('.')
   :prefix;
   const ips=[];
   for(let i=1;i<255;i++)ips.push(base+'.'+i);
   if(host)ips.unshift(host); // último conhecido primeiro
   const found=[];
-  const CONC=42; // F3.3v: 20→42 e timeout 900→450ms — scan ~3x mais rápido
+  const CONC=42;
   for(let i=0;i<ips.length;i+=CONC){
-    const batch=await Promise.all(ips.slice(i,i+CONC).map(probeSender));
-    dlog('batch',i,'-',i+CONC,':',batch.filter(Boolean).join(',')||'-');
-    for(const r of batch)if(r&&found.indexOf(r)<0)found.push(r);
-    if(found.length)return found[0];
+    if(generation!==palcoScanGeneration || cloudMode)return null;
+    const batch=await Promise.all(ips.slice(i,i+CONC).map(function(ip){return probeSender(ip,false,scanPort)}));
+    if(generation!==palcoScanGeneration || cloudMode)return null;
+    for(const r of batch)if(r)found.push(r);
+    if(found.length){port=found[0].port;statusDiagnostic('port_found');return found[0].ip}
   }
   return null;
 }
-
-var palcoScanGeneration=0;
 
 window.__palcoLocalIpReady=function(){
   var ip=window.__PALCO_LOCAL_IP||'';
   var ipv4=/^(?:\d{1,3}\.){3}\d{1,3}$/;
 
-  if(cloudMode || qs.get('host') || !ipv4.test(ip))return;
+  if(cloudMode)return;
+  if(manualHost){connect();return}
+  if(!ipv4.test(ip)){
+    if(host)connect();
+    else setStatus('IP local indisponível — verifique a rede da TV',true);
+    return;
+  }
   if(ws && ws.readyState===1)return;
 
   var prefix=ip.split('.').slice(0,3).join('.');
 
   // Preserva uma conexão já direcionada à mesma rede.
   if(host && ipv4.test(host) &&
-     host.split('.').slice(0,3).join('.')===prefix)return;
+     host.split('.').slice(0,3).join('.')===prefix){connect();return}
 
   // Reinicia a descoberta usando a rede informada pelo Flutter.
   host='';
@@ -2740,9 +2817,13 @@ window.__palcoLocalIpReady=function(){
 };
 
 function connect(){
+  if(cloudMode)return;
+  if(window.PalcoNetwork && !window.__PALCO_NETWORK_READY)return;
+  clearTimeout(localRetryTimer);
+  var currentScan=++palcoScanGeneration;
+  cancelStatusProbes();
   dlog('connect() host="'+host+'"');
   if(!host){
-    var currentScan=++palcoScanGeneration;
     setStatus('procurando LouvorJA na rede…');
     scanSubnet().then(found=>{
       if(currentScan!==palcoScanGeneration || cloudMode)return;
@@ -2756,7 +2837,9 @@ function connect(){
     // com backoff (que levavam ~15s antes de re-escanear).
     // Exceção: fetch bloqueado (app empacotado webOS) não significa host morto —
     // tenta WS direto 1x antes de descartar; WS não sofre CORS.
+    if(manualHost){doConnect();return}
     probeSender(host).then(ok=>{
+      if(currentScan!==palcoScanGeneration || cloudMode)return;
       if(ok)doConnect();
       else{
         dlog('probe falhou — tentando WS direto antes de descartar host');
@@ -2766,13 +2849,8 @@ function connect(){
   }
   // Tenta WS direto no host salvo; se falhar 1x sem nunca abrir, host é stale.
   function directTry(){
-    var opened=false;
-    var attemptedHost=host;
-    var t=setTimeout(function(){if(!opened && host===attemptedHost && !cloudMode){dlog('WS direto falhou — host stale');localStorage.removeItem('palcoHost');host='';connect()}},3000);
-    try{var w=new WebSocket('ws://'+host+':'+port+'/palco');
-      w.onopen=function(){opened=true;clearTimeout(t);try{w.close()}catch(e){};doConnect()};
-      w.onerror=function(){};
-    }catch(e){clearTimeout(t);localStorage.removeItem('palcoHost');host='';connect()}
+    // One socket only: same bounded handshake/retry path as a discovered host.
+    doConnect();
   }
 // F3.3u: re-scan contínuo enquanto desconectado — nunca desiste.
 // (antes: 3 falhas → esquecia host → 1 scan → parava com "não encontrado")
@@ -2788,25 +2866,43 @@ function stopMediaOnServerLoss(){
 }
 
 function doConnect(){
+  if(cloudMode)return;
+  var generation=++palcoScanGeneration;
+  cancelStatusProbes();clearTimeout(localRetryTimer);
+  if(ws){ws.onclose=null;ws.onerror=null;ws.onopen=null;try{ws.close()}catch(e){}}
   dlog('doConnect '+host+':'+port);
   setStatus('conectando '+host+':'+port+'…');
-  try{ws=new WebSocket('ws://'+host+':'+port+'/palco')}catch(e){retry();return}
-  ws.onopen=()=>{tries=0;dlog('WS OPEN '+host);setStatus('● '+host);
+  try{ws=new WebSocket('ws://'+host+':'+port+'/palco')}catch(e){statusDiagnostic('ws_constructor');retry();return}
+  var socket=ws;
+  function current(){return !cloudMode && generation===palcoScanGeneration && socket===ws}
+  var handshake=setTimeout(function(){
+    if(!current() || socket.readyState===1)return;
+    statusDiagnostic('ws_handshake_timeout');socket.onclose=null;try{socket.close()}catch(e){}
+    if(tries>=3&&!manualHost){localStorage.removeItem('palcoHost');host='';tries=0}
+    retry();
+  },4000);
+  ws.onopen=()=>{clearTimeout(handshake);if(!current()){try{socket.close()}catch(e){};return}
+    tries=0;statusDiagnostic('ws_open');dlog('WS OPEN '+host);setStatus('● '+host);
     sendHello();
     if(window.__hideSplash)window.__hideSplash(); // F3.3j: splash sai no connect
     localStorage.setItem('palcoHost',host);
     localStorage.setItem('palcoPort',port)};
-  ws.onmessage=ev=>{try{handle(JSON.parse(ev.data))}catch(e){}};
-  ws.onclose=()=>{dlog('WS CLOSE');stopMediaOnServerLoss();showIdle();
+  ws.onmessage=ev=>{if(!current())return;try{handle(JSON.parse(ev.data))}catch(e){statusDiagnostic('ws_message_error')}};
+  ws.onclose=ev=>{clearTimeout(handshake);if(!current())return;
+    if(typeof palcoDiag==='function')palcoDiag('ws_close',ev.code);
+    dlog('WS CLOSE');stopMediaOnServerLoss();showIdle();
     // host falhou 3x → esquece e re-escaneia (IP mudou)
-    if(tries>=3){localStorage.removeItem('palcoHost');host='';tries=0}
+    if(tries>=3&&!manualHost){localStorage.removeItem('palcoHost');host='';tries=0}
     retry()};
-  ws.onerror=()=>{};
+  ws.onerror=()=>{if(current())statusDiagnostic('ws_handshake_or_transport')};
 }
 function retry(){
+  if(cloudMode)return;
+  clearTimeout(localRetryTimer);
+  var generation=palcoScanGeneration;
   const wait=Math.min(1000*Math.pow(2,tries++),10000);
   setStatus('reconectando em '+Math.round(wait/1000)+'s',true);
-  setTimeout(connect,wait);
+  localRetryTimer=setTimeout(function(){if(generation===palcoScanGeneration&&!cloudMode)connect()},wait);
 }
 
 // ===== WT-5d: modo cloud — TV conecta no relay WS da API =====
@@ -2825,28 +2921,37 @@ var cloudMode=false;
 var cloudTimer=null;
 
 function cloudConnect(code){
+  ++palcoScanGeneration;cancelStatusProbes();clearTimeout(localRetryTimer);
+  var generation=palcoScanGeneration;
+  clearTimeout(cloudTimer);
   cloudMode=true;cloudCode=code;
   dlog('cloudConnect',code,cloudApi);
   var base=cloudApi.replace(/^ws/,'http');
   setStatus('nuvem: buscando sessão '+code+'…');
   fetch(base+'/sessions/'+code+'/token')
     .then(function(r){if(!r.ok)throw Error('sessão não encontrada');return r.json()})
-    .then(function(j){cloudOpen(code,j.token)})
-    .catch(function(e){setStatus('nuvem: '+e.message,true);cloudRetry()});
+    .then(function(j){if(cloudMode&&generation===palcoScanGeneration)cloudOpen(code,j.token)})
+    .catch(function(e){if(!cloudMode||generation!==palcoScanGeneration)return;setStatus('nuvem: '+e.message,true);cloudRetry()});
 }
 function cloudOpen(code,token){
+  if(!cloudMode)return;
+  var generation=palcoScanGeneration;
+  if(ws){ws.onclose=null;ws.onopen=null;try{ws.close()}catch(e){}}
   setStatus('nuvem: conectando…');
   var cid='';
   try{cid=localStorage.getItem('palcoCloudCid')||''}catch(e){}
   if(!cid){cid='tv-'+Math.random().toString(36).slice(2,10);try{localStorage.setItem('palcoCloudCid',cid)}catch(e){}}
   try{ws=new WebSocket(cloudApi+'/relay/'+code+'?token='+encodeURIComponent(token)+'&role=receiver&cid='+encodeURIComponent(cid))}
   catch(e){cloudRetry();return}
-  ws.onopen=function(){tries=0;dlog('CLOUD WS OPEN',code);
+  var socket=ws;
+  function current(){return cloudMode&&generation===palcoScanGeneration&&socket===ws}
+  ws.onopen=function(){if(!current()){try{socket.close()}catch(e){};return}tries=0;dlog('CLOUD WS OPEN',code);
     setStatus('● nuvem '+code);
     if(window.__hideSplash)window.__hideSplash();
     try{localStorage.setItem('palcoCloudCode',code)}catch(e){}};
-  ws.onmessage=function(ev){try{handle(JSON.parse(ev.data))}catch(e){}};
+  ws.onmessage=function(ev){if(!current())return;try{handle(JSON.parse(ev.data))}catch(e){}};
   ws.onclose=function(ev){
+    if(!current())return;
     dlog('CLOUD WS CLOSE',ev&&ev.code);
     stopMediaOnServerLoss();showIdle();
     if(ev&&ev.code===4404){setStatus('sessão inválida — tecla vermelha p/ novo código',true);cloudMode=false;return}
@@ -2867,19 +2972,23 @@ function cloudRetry(){
 // receiver e MOSTRA o código + QR no idle. O operador abre o web, informa o
 // código (ou escaneia) e projeta. Padrão YouTube/Netflix.
 function cloudCreate(){
+  ++palcoScanGeneration;cancelStatusProbes();clearTimeout(localRetryTimer);
+  var generation=palcoScanGeneration;
+  clearTimeout(cloudTimer);
   cloudMode=true;cloudCode='';
   var base=cloudApi.replace(/^ws/,'http');
   setStatus('nuvem: criando sessão…');
   fetch(base+'/sessions',{method:'POST'})
     .then(function(r){if(!r.ok)throw Error('falha ao criar sessão');return r.json()})
     .then(function(j){
+      if(!cloudMode||generation!==palcoScanGeneration)return;
       cloudCode=String(j.code||'').toUpperCase();
       if(!cloudCode)throw Error('sessão inválida');
       try{localStorage.setItem('palcoCloudCode',cloudCode)}catch(e){}
       showCloudPair(cloudCode);
       cloudOpen(cloudCode,j.token);
     })
-    .catch(function(e){setStatus('nuvem: '+e.message,true);cloudMode=false;retry()});
+    .catch(function(e){if(!cloudMode||generation!==palcoScanGeneration)return;setStatus('nuvem: '+e.message,true);cloudMode=false;retry()});
 }
 
 // ===== QRCode minimal (qrcodegen, MIT, Nayuki) — só o necessário p/ v1 =====
@@ -3181,15 +3290,17 @@ function submitIp(){
   // Só dígitos (2-5) = PORTA: o sender é achado por scan com essa porta
   // (usuário não decora IP; nova TV na rede de igreja conecta fácil).
   if(/^\d{2,5}$/.test(v)&&!/\./.test(v)){
+    cloudMode=false;clearTimeout(cloudTimer);manualHost=false;portFixed=true;
     port=v;localStorage.setItem('palcoPort',port);tries=0;closeIpEntry();
     try{if(ws)ws.close()}catch(e){}
     host='';localStorage.removeItem('palcoHost');
     setStatus('procurando LouvorJA na porta '+port+'…');
-    scanSubnet();
+    connect();
     return;
   }
   // Multi-palco: aceita IP ou IP:PORTA (ex: 192.168.1.50:7083).
   var parts=v.split(':');
+  cloudMode=false;clearTimeout(cloudTimer);manualHost=true;
   host=parts[0];localStorage.setItem('palcoHost',host);
   if(parts[1]&&parseInt(parts[1],10)>0){
     port=String(parseInt(parts[1],10));localStorage.setItem('palcoPort',port);
