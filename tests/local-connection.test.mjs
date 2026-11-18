@@ -14,8 +14,10 @@ function receiver({ query = '', fetch = () => Promise.reject(Error('offline')), 
     qs: new URLSearchParams(query), cloudMode: false, ws: null, tries: 0,
     location: { hostname: '', protocol: 'file:' },
     localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
-    window: native ? { PalcoNetwork: { postMessage: x => messages.push(JSON.parse(x)) },
-      __PALCO_NATIVE_SESSION: 'test-session', __PALCO_NETWORK_READY: true } : {},
+    window: Object.assign({ addEventListener() {} }, native ? { PalcoNetwork: { postMessage: x => messages.push(JSON.parse(x)) },
+      __PALCO_NATIVE_SESSION: 'test-session', __PALCO_NETWORK_READY: true } : {}),
+    // vigia do heartbeat (conexão viva) roda no mesmo trecho
+    document: { hidden: false, addEventListener() {} }, setInterval: () => 0,
     palcoDiag: (kind, value) => diagnostics.push([kind, value]),
     setTimeout(fn, ms) { const id = ++timerId; timers.set(id, { fn, ms }); return id },
     clearTimeout: id => timers.delete(id),
@@ -137,7 +139,8 @@ test('relay uses browser HTTPS independently, cancels LAN and ignores late token
   reply({ ok: true, json: async () => ({ token: 'test-only' }) })
   await r.flush()
   assert.equal(r.sockets.length, 1)
-  assert.equal(r.sockets[0].url, 'ws://192.168.18.12:47081/palco')
+  // Sem porta no link, a padrão é a do Palco do desktop (47181), não a Transmissão.
+  assert.equal(r.sockets[0].url, 'ws://192.168.18.12:47181/palco')
 })
 
 test('local websocket close schedules exactly one bounded retry and preserves manual host', () => {
