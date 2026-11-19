@@ -50,9 +50,27 @@ fetch: (url) => {
   return { context, asked, state: () => context.__state() }
 }
 
-test('sem porta escolhida, a padrão é a nova 47081', () => {
+test('sem porta escolhida, a padrão é a do Palco (47181)', () => {
   const { state } = receiver()
-  assert.equal(state().port, '47081')
+  assert.equal(state().port, '47181')
+})
+
+test('desktop atualizado: vai para o Palco (47180), não para a Transmissão (47080)', async () => {
+  const r = receiver({ open: ['192.168.1.21:47080', '192.168.1.21:47180'] })
+  assert.equal(await r.context.probeSender('192.168.1.21'), '192.168.1.21')
+  assert.equal(r.state().port, '47181')
+})
+
+test('TV que estava na 47081 passa para o Palco quando o desktop atualiza', async () => {
+  const r = receiver({ saved: { palcoPort: '47081' }, open: ['192.168.1.22:47080', '192.168.1.22:47180'] })
+  await r.context.probeSender('192.168.1.22')
+  assert.equal(r.state().port, '47181')
+})
+
+test('TV movida para outra conexão do Palco continua nela', async () => {
+  const r = receiver({ saved: { palcoPort: '47183' }, open: ['192.168.1.23:47180', '192.168.1.23:47182'] })
+  await r.context.probeSender('192.168.1.23')
+  assert.equal(r.state().port, '47183')
 })
 
 test('acha o computador atualizado na porta nova', async () => {
@@ -121,8 +139,8 @@ test('mídia remota e capas passam pela porta HTTP de quem transmite', async () 
   assert.equal(apk.context.coverUrl('covers/a.jpg'), 'http://192.168.1.30:7080/covers/a.jpg')
 })
 
-test('a dica de porta manual cita a porta nova', () => {
-  assert.match(html, /SÓ A PORTA \(ex\.: 47081\)/)
+test('a dica de porta manual cita a porta do Palco', () => {
+  assert.match(html, /SÓ A PORTA \(ex\.: 47181\)/)
 })
 
 test('Android TV descobre o sender usando o IP local informado pelo Flutter', async () => {

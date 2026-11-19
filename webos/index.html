@@ -76,6 +76,9 @@
   #bg{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;
     filter:none;transition:opacity .8s}
   #bg[src=""]{opacity:0}
+  /* Quadro de slide/imagem (PDF, PPT, imagens da liturgia): o conteúdo
+     aparece inteiro, como no operador, e aceita o zoom (frameView). */
+  #bg.frame-slide{object-fit:contain;background:#000;transform-origin:50% 50%}
   #bgPalco{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover}
   #veil{position:fixed;inset:0;background:transparent;pointer-events:none}
   #content{position:fixed;top:0;left:0;right:0;bottom:0;padding:3vh 4vw;
@@ -2617,7 +2620,9 @@ function palcoId(){
 }
 function sendHello(){
   var el=$('idleVer'),m=el&&el.textContent.match(/v([\d.]+)/);
-  var msg={v:2,type:'hello',role:'tv',platform:palcoPlatform(),id:palcoId()};
+  // caps: aplica o zoom do quadro sozinho (o app manda só zoom + posição)
+  // heartbeat: responde ao `beat` do servidor (conexão viva dos dois lados)
+  var msg={v:2,type:'hello',role:'tv',platform:palcoPlatform(),id:palcoId(),caps:['frameView','heartbeat']};
   if(m)msg.version=m[1];
   try{var n=localStorage.getItem('palcoName');if(n)msg.name=n}catch(e){}
   sendEvent(msg);
@@ -2646,11 +2651,15 @@ function sendEvent(m){try{if(ws&&ws.readyState===1)ws.send(JSON.stringify(m))}ca
 // > scan da sub-rede via GET :47080/status (resposta JSON identifica sender).
 // O APK novo usa 4980/4981 (faixa própria, sem conflito com o desktop);
 // APK e computadores ainda não atualizados seguem na 7080/7081: todas são procuradas.
+// Palco do desktop separado da Transmissão (OBS/navegador): porta própria
+// 47180/47181, sem o token da rede. A 47081 é a Transmissão (e o Palco dos
+// desktops ainda não atualizados): continua sendo procurada depois.
+const PALCO_WS_PORT='47181';
 const DEFAULT_WS_PORT='47081';
 const APK_WS_PORT='4981';
 const LEGACY_WS_PORT='7081';
 let host=qs.get('host')||localStorage.getItem('palcoHost')||location.hostname||'';
-let port=qs.get('port')||localStorage.getItem('palcoPort')||DEFAULT_WS_PORT;
+let port=qs.get('port')||localStorage.getItem('palcoPort')||PALCO_WS_PORT;
 // Porta do link é definitiva; a salva pode ser de outro transmissor.
 const portFixed=!!qs.get('port');
 function senderHttpPort(){return (parseInt(port,10)||Number(DEFAULT_WS_PORT))-1}
@@ -2665,8 +2674,10 @@ function probeHttp(ip,httpPort){
 }
 function probeSender(ip){
   // Sem porta no link: a atual, a do desktop, a do APK e a antiga, em paralelo; vence a primeira da lista que responder.
-  var tries=[port];
-  if(!portFixed)[DEFAULT_WS_PORT,APK_WS_PORT,LEGACY_WS_PORT].forEach(function(p){if(tries.indexOf(p)<0)tries.push(p)});
+  // A porta salva vence (ex.: TV movida para outra conexão do Palco), menos a
+  // 47081 antiga: aí o Palco do desktop atualizado vem antes da Transmissão.
+  var tries=portFixed||String(port)!==DEFAULT_WS_PORT?[port]:[PALCO_WS_PORT,port];
+  if(!portFixed)[PALCO_WS_PORT,DEFAULT_WS_PORT,APK_WS_PORT,LEGACY_WS_PORT].forEach(function(p){if(tries.indexOf(p)<0)tries.push(p)});
   return Promise.all(tries.map(function(p){return probePair(ip,parseInt(p,10)||Number(DEFAULT_WS_PORT))})).then(function(found){
     for(var i=0;i<found.length;i++)if(found[i])return normalizePort(ip,null,found[i]);
     return null;
@@ -2791,12 +2802,15 @@ function doConnect(){
   dlog('doConnect '+host+':'+port);
   setStatus('conectando '+host+':'+port+'…');
   try{ws=new WebSocket('ws://'+host+':'+port+'/palco')}catch(e){retry();return}
-  ws.onopen=()=>{tries=0;dlog('WS OPEN '+host);setStatus('● '+host);
+  ws.onopen=()=>{tries=0;lastServerMessage=Date.now();serverBeats=false;dlog('WS OPEN '+host);setStatus('● '+host);
     sendHello();
     if(window.__hideSplash)window.__hideSplash(); // F3.3j: splash sai no connect
     localStorage.setItem('palcoHost',host);
     localStorage.setItem('palcoPort',port)};
-  ws.onmessage=ev=>{try{handle(JSON.parse(ev.data))}catch(e){}};
+  ws.onmessage=ev=>{lastServerMessage=Date.now();try{var m=JSON.parse(ev.data);
+    // sinal de vida do servidor: responde e não vai para a tela
+    if(m&&m.type==='beat'){serverBeats=true;try{ws.send('{"v":2,"type":"beat"}')}catch(e){}return}
+    handle(m)}catch(e){}};
   ws.onclose=()=>{dlog('WS CLOSE');stopMediaOnServerLoss();showIdle();
     // host falhou 3x → esquece e re-escaneia (IP mudou)
     if(tries>=3){localStorage.removeItem('palcoHost');host='';tries=0}
@@ -2806,8 +2820,35 @@ function doConnect(){
 function retry(){
   const wait=Math.min(1000*Math.pow(2,tries++),10000);
   setStatus('reconectando em '+Math.round(wait/1000)+'s',true);
-  setTimeout(connect,wait);
+  clearTimeout(retryTimer);
+  retryTimer=setTimeout(function(){retryTimer=null;connect()},wait);
 }
+
+// ===== Conexão viva dos dois lados =====
+// O computador manda `beat` a cada 10 s e cobra a resposta (e procura a TV
+// que caiu pela rede). Daqui, se ficar 30 s sem ouvir nada dele, a conexão
+// está pendurada (Wi-Fi caiu, PC dormiu): fecha e reconecta na hora, sem
+// esperar o WebView perceber. Computador antigo não manda `beat`: o vigia
+// fica desligado. Só vale para a conexão local (o relay cloud tem a sua).
+var lastServerMessage=0,serverBeats=false,retryTimer=null;
+var SERVER_SILENCE_MS=30000;
+function reconnectNow(reason){
+  dlog('reconectando: '+reason);
+  var dead=ws;ws=null;
+  if(dead){dead.onclose=null;dead.onmessage=null;dead.onerror=null;try{dead.close()}catch(e){}}
+  stopMediaOnServerLoss();showIdle();
+  clearTimeout(retryTimer);retryTimer=null;
+  connect();
+}
+function checkServerAlive(now){
+  if(!cloudMode&&ws&&ws.readyState===1&&serverBeats&&now-lastServerMessage>SERVER_SILENCE_MS){reconnectNow('computador sem resposta');return true}
+  return false;
+}
+setInterval(function(){checkServerAlive(Date.now())},5000);
+// Rede voltou ou o app voltou à frente: tenta já, sem esperar a próxima vez.
+function reconnectSoon(){if(retryTimer&&!cloudMode){clearTimeout(retryTimer);retryTimer=null;connect()}}
+window.addEventListener('online',reconnectSoon);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)reconnectSoon()});
 
 // ===== WT-5d: modo cloud — TV conecta no relay WS da API =====
 // Mesmo protocolo do receiver browser (browser/index.html): código de 6 chars
@@ -3148,7 +3189,7 @@ function openIpEntry(){
   ipEntry.style.cssText='position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.85);'+
     'display:flex;align-items:center;justify-content:center';
   ipEntry.innerHTML='<div style="text-align:center">'+
-    '<p style="font-size:2.6vh;opacity:.7;margin:0 0 2vh 0">CÓDIGO (6 letras/números) · IP · IP:PORTA — ou SÓ A PORTA (ex.: 47081) para achar o LouvorJA na rede</p>'+
+    '<p style="font-size:2.6vh;opacity:.7;margin:0 0 2vh 0">CÓDIGO (6 letras/números) · IP · IP:PORTA — ou SÓ A PORTA (ex.: 47181) para achar o LouvorJA na rede</p>'+
     '<p id="ipVal" style="font-size:6vh;font-weight:700;letter-spacing:.5vh;margin:0;'+
     'min-height:7vh;border-bottom:.3vh solid #FCCE02;padding:0 4vh"></p>'+
     '<p style="font-size:1.8vh;opacity:.5;margin:2vh 0 0 0">OK conectar · amarela digita : · vermelha cancelar · backspace apaga</p></div>';
@@ -3301,8 +3342,22 @@ if(SHARE_PANE)window.addEventListener('message',function(e){
   if(e.source===window.parent&&e.data&&typeof e.data==='object')handle(e.data);
 });
 
+// Zoom do quadro (imagem/PDF/PPT) igual ao do operador: escala + deslocamento
+// em fração da tela, animado para não andar em "degraus".
+function applyFrameView(view,anim){
+  var bgEl=$('bg');if(!bgEl)return;
+  var z=view&&Number(view.zoom)>1?Math.min(5,Number(view.zoom)):1;
+  var x=view&&isFinite(Number(view.x))?Number(view.x):0;
+  var y=view&&isFinite(Number(view.y))?Number(view.y):0;
+  var ms=Math.max(0,Math.min(400,Number(anim)||0));
+  bgEl.style.transition=ms?'transform '+ms+'ms cubic-bezier(0.2,0.7,0.3,1),opacity .8s':'';
+  bgEl.style.transform=z===1&&!x&&!y?'':'translate('+(x*100)+'%,'+(y*100)+'%) scale('+z+')';
+}
 function handle(m){
   if(m.v!==1&&m.v!==2)return;
+  if(m.type==='frameView'){if($('bg').className.indexOf('frame-slide')>=0)applyFrameView(m.view,m.view&&m.view.anim);return;}
+  // outro conteúdo no fundo: o zoom do quadro anterior não vale para ele
+  if(m.type==='video'||m.type==='audio'||m.type==='idle'||m.type==='bgPalco'||m.type==='stop-all'||m.type==='timer')applyFrameView(null,0);
   // Tela de espera sem logo (opção do transmissor, reenviada ao conectar).
   if(m.type==='idleStyle'){document.documentElement.classList.toggle('idle-no-logo',m.hideLogo===true);return;}
   // Ações por palco (módulo Palco do celular): só este receiver recebe.
@@ -3396,6 +3451,10 @@ function handle(m){
         t.style.display='none';$('text').style.display='';}}
       const bgEl=$('bg');
       bgEl.onerror=()=>{bgEl.onerror=null;bgEl.src='bg-fallback.png'};
+      // Quadro de slide/imagem (data:image do app): conteúdo inteiro, com o zoom do operador.
+      const isFrameSlide=m.frameSlide===true||(typeof m.background==='string'&&m.background.indexOf('data:image/')===0);
+      bgEl.classList.toggle('frame-slide',isFrameSlide);
+      applyFrameView(isFrameSlide?m.view:null,0);
       if(m.background){bgEl.src=proxyUrl(m.background);bgEl.style.opacity='';document.body.style.background=''}
       // Sem bg na mensagem: usa o BG configurado no app (bgPalco — enviado
       // ao ligar o palco). Só se NÃO houver bg configurado cai no fallback
