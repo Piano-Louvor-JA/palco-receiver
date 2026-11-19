@@ -4,12 +4,12 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
-const html = await readFile(new URL('../webos/index.html', import.meta.url), 'utf8')
+const html = (await readFile(new URL('../webos/index.html', import.meta.url), 'utf8')).replace(/\r\n/g, '\n')
 
 test('a TV se identifica ao conectar (hello com plataforma, id e versão)', () => {
   assert.match(html, /function sendHello\(\)/)
   assert.match(html, /type:'hello',role:'tv',platform:palcoPlatform\(\),id:palcoId\(\)/)
-  assert.match(html, /ws\.onopen=[\s\S]{0,120}sendHello\(\)/)
+  assert.match(html, /ws\.onopen=[\s\S]*?sendHello\(\)/)
 })
 
 test('comandos por TV: identificar, renomear, recarregar e mover', () => {

@@ -23,8 +23,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
       - name: Paridade receiver (webos vs androidtv vs tizen) + contrato de protocolo + portas do sender
-        run: node --test tests/parity-protocol.test.mjs tests/sender-port.test.mjs tests/remote-keys.test.mjs tests/tizen-config.test.mjs tests/frame-zoom.test.mjs tests/heartbeat.test.mjs
+        run: node --test tests/*.test.mjs
+
+      - name: HTTP CORS and WebSocket in real Chromium
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+        run: node --test tests/browser-local-connection.mjs
 
       - name: Paridade receiver (webos vs androidtv)
         run: |
@@ -39,8 +48,8 @@ jobs:
           # root cause 0.1.3: nullish coalescing quebra o PARSE no Chromium webOS
           SCRIPT=$(node -e "
             const s = require('fs').readFileSync('webos/index.html','utf8');
-            const m = s.match(/<script>([\s\S]*?)<\/script>/);
-            process.stdout.write(m ? m[1] : '');
+            const scripts = Array.from(s.matchAll(/<script\\b[^>]*>([\\s\\S]*?)<\\/script>/g));
+            process.stdout.write(scripts.map(m => m[1]).join('\\n'));
           ")
           if echo "$SCRIPT" | grep -nE '\?\?|\?\.[a-zA-Z]'; then
             echo "::error::ES2020+ encontrado — o Chromium do webOS não parseia e o script inteiro morre"
@@ -142,10 +151,18 @@ jobs:
         working-directory: androidtv
         run: flutter analyze --no-fatal-infos
 
+      - name: Flutter tests (real native HTTP included)
+        working-directory: androidtv
+        run: flutter test
+
       - name: Build APK release
         working-directory: androidtv
         run: |
-          flutter build apk --release
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" && "$GITHUB_HEAD_REF" == "fix/43-androidtv-local-connection" ]]; then
+            flutter build apk --release --dart-define=PALCO_NETWORK_DIAGNOSTICS=true
+          else
+            flutter build apk --release
+          fi
           VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
           mv build/app/outputs/flutter-apk/app-release.apk \
              build/app/outputs/flutter-apk/PalcoLouvorJA-AndroidTV-${VERSION}.apk

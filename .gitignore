@@ -1,6 +1,7 @@
 *.ipk
 *.wgt
 node_modules/
+.local-tools/
 .DS_Store
 
 # Tizen CLI generated

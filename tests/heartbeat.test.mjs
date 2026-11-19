@@ -32,6 +32,9 @@ function receiver() {
     setTimeout: () => 1,
     clearTimeout: () => {},
     host: '192.168.0.130', port: '47181', tries: 0, ws: null, cloudMode: false,
+    // estado da conexão local (descoberta da #43)
+    palcoScanGeneration: 0, localRetryTimer: null, manualHost: false,
+    cancelStatusProbes: () => {}, statusDiagnostic: () => {}, palcoDiag: () => {},
     dlog: () => {}, setStatus: () => {}, sendHello: () => {},
     stopMediaOnServerLoss: () => {}, showIdle: () => { calls.idle += 1 },
     handle: (m) => calls.handled.push(m),
