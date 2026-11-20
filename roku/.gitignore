@@ -1,0 +1,4 @@
+# Local AI-context breadcrumb (rk update-ai-context)
+.roku/
+dist-build/
+test-results/

@@ -14,6 +14,7 @@ instalação:
 | [`webos/`](webos/README.md) | LG webOS 4.x+ | IPK (`ares-package`) | Dev Mode + `ares-install` — ver [webos/README.md](webos/README.md) |
 | [`tizen/`](tizen/README.md) | Samsung Tizen 4.0+ | WGT (zip + config.xml) | Dev Mode Samsung + `sdb install` — ver [tizen/README.md](tizen/README.md) |
 | [`androidtv/`](androidtv/README.md) | Android TV / box / Fire TV | APK Flutter (WebView) | `adb install` / Play Store — ver [androidtv/README.md](androidtv/README.md) |
+| [`roku/`](roku/README.md) | Roku OS 16.0+ | ZIP sideload (`npm run package`) | Developer Mode + sideload — ver [roku/README.md](roku/README.md) |
 
 Todas compartilham o **MESMO receiver** (HTML/JS único) — paridade total de
 features, validada no CI: scan automático do sender, IP/porta manual

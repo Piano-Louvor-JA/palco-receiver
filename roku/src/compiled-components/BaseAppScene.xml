@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="BaseAppScene" extends="Scene" backExitsScene="true">
+  <children><PalcoApp id="palcoApp" /></children>
+  <script type="text/brightscript" uri="BaseAppScene.brs" />
+  <script type="text/brightscript" uri="pkg:/components/Storage.brs" />
+  <script type="text/brightscript" uri="pkg:/components/Protocol.brs" />
+</component>
