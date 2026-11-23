@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
+<script src="i18n.js"></script>
 <script>
 // Installed before the main script: parse/runtime errors must be visible too.
 function palcoDiag(kind,code){
@@ -35,7 +36,7 @@ window.addEventListener('unhandledrejection',function(){palcoDiag('javascript_re
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>LouvorJA Palco</title>
+<title data-i18n="t_tv_title">LouvorJA Palco</title>
 <script id="palco-telemetry">
 // Telemetria de erros → Glitchtip self-hosted. DSN via querystring ?telemetry_dsn=
 // (a URL do receiver já carrega host/código do launcher — mesmo canal, zero config nova).
@@ -236,18 +237,18 @@ window.addEventListener('unhandledrejection',function(){palcoDiag('javascript_re
     <div style="background:#00C1E6"></div>
     <div style="background:#FCCE02"></div>
   </div>
-  <p id="idleMsg">Aguardando transmissão…</p>
+  <p id="idleMsg" data-i18n="t_waiting_media">Waiting for transmission…</p>
   <!-- F3.3u: status de conexão visível no idle (sem ?debug) + dica da tecla vermelha -->
   <p id="idleConn" style="font-size:1.8vh;opacity:.45;margin:1.2vh 0 0 0"></p>
   </div>
 </div>
 
-<div id="status">conectando…</div>
+<div id="status" data-i18n="t_connecting_dots">connecting…</div>
 <!-- F3.3s: versão FORA do #idle — fixa no canto da tela, sempre visível -->
 <p id="idleVer" style="position:fixed;right:3vh;bottom:3.2vh;margin:0;z-index:9999;
   font-size:1.45vh;font-weight:500;letter-spacing:.11vh;opacity:.88;
   font-family:inherit;color:#fff;text-shadow:0 1px 4px #000;
-  padding:.45vh .8vh;background:rgba(0,0,0,.30);pointer-events:none">PIANO LouvorJA Palco · receiver v0.3.1</p>
+  padding:.45vh .8vh;background:rgba(0,0,0,.30);pointer-events:none">PIANO LouvorJA Palco</p>
 <audio id="audio" preload="auto"></audio>
 <script>
 //---------------------------------------------------------------------
@@ -2569,7 +2570,7 @@ const qs=new URLSearchParams(location.search);
 const SHARE_PANE=qs.get('obsPane')==='1';
 // F3.3q: versão no idle (canto inferior direito) — ?v= override ou padrão.
 window.__PALCO_APPV__=window.__PALCO_APPV__||'0.4.0';
-(function(){var el=$('idleVer');if(!el)return;var qv=qs.get('v')||window.__PALCO_APPV__||'';if(qv){el.textContent='PIANO LouvorJA Palco · receiver v'+qv;return}fetch('appinfo.json').then(function(r){return r.json()}).then(function(j){el.textContent='PIANO LouvorJA Palco · receiver v'+(j.version||'?')}).catch(function(){fetch('config.xml').then(function(r){return r.text()}).then(function(t){var m2=t.match(/version="([^"]+)"/);el.textContent='PIANO LouvorJA Palco · receiver v'+(m2?m2[1]:'?')}).catch(function(){el.textContent='PIANO LouvorJA Palco'})})})()
+(function(){var el=$('idleVer');if(!el)return;var qv=qs.get('v')||window.__PALCO_APPV__||'';if(qv){el.textContent=PALCO_I18N.fmt('t_ver_line',{n:qv});return}fetch('appinfo.json').then(function(r){return r.json()}).then(function(j){el.textContent='PIANO LouvorJA Palco · receiver v'+(j.version||'?')}).catch(function(){fetch('config.xml').then(function(r){return r.text()}).then(function(t){var m2=t.match(/version="([^"]+)"/);el.textContent=PALCO_I18N.fmt('t_ver_line',{n:(m2?m2[1]:'?')})}).catch(function(){el.textContent='PIANO LouvorJA Palco'})})})()
 // webOS: ares-launch -p '{"host":"..."}' chega em PalmSystem.launchParams,
 // NÃO na query string. Merge dos dois (query string tem prioridade).
 try{
@@ -2605,9 +2606,9 @@ function setStatus(t,err){const s=$('status');s.textContent=t;
   const c=$('idleConn');if(c){
     if(t.indexOf('●')===0){
       var lb=localStorage.getItem('palcoSlotLabel');
-      c.textContent=(lb?lb+' · ':'')+'conectado a '+t.slice(1).trim()+' · vermelha = IP/porta · azul = atualizar';
+      c.textContent=(lb?lb+' · ':'')+PALCO_I18N.fmt('t_connected_to',{n:t.slice(1).trim()})+' · '+PALCO_I18N.t('t_red_ip_blue_update');
     }
-    else c.textContent=(localStorage.getItem('palcoSlotLabel')?localStorage.getItem('palcoSlotLabel')+' · ':'')+t+' · tecla vermelha = digitar IP';
+    else c.textContent=(localStorage.getItem('palcoSlotLabel')?localStorage.getItem('palcoSlotLabel')+' · ':'')+t+' · '+PALCO_I18N.t('t_red_key_ip');
   }
   s.className=err?'err':''}
 
@@ -2645,7 +2646,7 @@ function showIdentify(name,slot){
     document.body.appendChild(el)}
   el.innerHTML='';
   var t=document.createElement('div');t.style.cssText='font-size:11vh;font-weight:700;padding:0 4vw';
-  t.textContent=name||'Palco';el.appendChild(t);
+  t.textContent=name||PALCO_I18N.t('t_receiver_name');el.appendChild(t);
   if(slot){var s=document.createElement('div');s.style.cssText='font-size:4.5vh;opacity:.8;margin-top:2vh';
     s.textContent=slot;el.appendChild(s)}
   el.style.display='flex';
@@ -2812,7 +2813,7 @@ window.__palcoLocalIpReady=function(){
   if(manualHost){connect();return}
   if(!ipv4.test(ip)){
     if(host)connect();
-    else setStatus('IP local indisponível — verifique a rede da TV',true);
+    else setStatus(PALCO_I18N.t('t_ip_unavailable'),true);
     return;
   }
   if(ws && ws.readyState===1)return;
@@ -2836,11 +2837,11 @@ function connect(){
   cancelStatusProbes();
   dlog('connect() host="'+host+'"');
   if(!host){
-    setStatus('procurando LouvorJA na rede…');
+    setStatus(PALCO_I18N.t('t_searching_network'));
     scanSubnet().then(found=>{
       if(currentScan!==palcoScanGeneration || cloudMode)return;
       if(found){host=found;localStorage.setItem('palcoHost',host);doConnect()}
-      else{setStatus('nenhum sender encontrado — tentando de novo…',true);retry()}
+      else{setStatus(PALCO_I18N.t('t_no_sender'),true);retry()}
     });
     return;
   }
@@ -2883,7 +2884,7 @@ function doConnect(){
   cancelStatusProbes();clearTimeout(localRetryTimer);
   if(ws){ws.onclose=null;ws.onerror=null;ws.onopen=null;try{ws.close()}catch(e){}}
   dlog('doConnect '+host+':'+port);
-  setStatus('conectando '+host+':'+port+'…');
+  setStatus(PALCO_I18N.fmt('t_connecting_host',{n:host+':'+port}));
   try{ws=new WebSocket('ws://'+host+':'+port+'/palco')}catch(e){statusDiagnostic('ws_constructor');retry();return}
   var socket=ws;
   function current(){return !cloudMode && generation===palcoScanGeneration && socket===ws}
@@ -2916,7 +2917,7 @@ function retry(){
   clearTimeout(localRetryTimer);
   var generation=palcoScanGeneration;
   const wait=Math.min(1000*Math.pow(2,tries++),10000);
-  setStatus('reconectando em '+Math.round(wait/1000)+'s',true);
+  setStatus(PALCO_I18N.fmt('t_reconnecting_in',{n:Math.round(wait/1000)}),true);
   localRetryTimer=setTimeout(function(){localRetryTimer=null;if(generation===palcoScanGeneration&&!cloudMode)connect()},wait);
 }
 
@@ -2968,17 +2969,17 @@ function cloudConnect(code){
   cloudMode=true;cloudCode=code;
   dlog('cloudConnect',code,cloudApi);
   var base=cloudApi.replace(/^ws/,'http');
-  setStatus('nuvem: buscando sessão '+code+'…');
+  setStatus(PALCO_I18N.fmt('t_cloud_searching',{n:code}));
   fetch(base+'/sessions/'+code+'/token')
-    .then(function(r){if(!r.ok)throw Error('sessão não encontrada');return r.json()})
+    .then(function(r){if(!r.ok)throw Error(PALCO_I18N.t('t_session_not_found2'));return r.json()})
     .then(function(j){if(cloudMode&&generation===palcoScanGeneration)cloudOpen(code,j.token)})
-    .catch(function(e){if(!cloudMode||generation!==palcoScanGeneration)return;setStatus('nuvem: '+e.message,true);cloudRetry()});
+    .catch(function(e){if(!cloudMode||generation!==palcoScanGeneration)return;setStatus('☁ '+e.message,true);cloudRetry()});
 }
 function cloudOpen(code,token){
   if(!cloudMode)return;
   var generation=palcoScanGeneration;
   if(ws){ws.onclose=null;ws.onopen=null;try{ws.close()}catch(e){}}
-  setStatus('nuvem: conectando…');
+  setStatus(PALCO_I18N.t('t_cloud_connecting'));
   var cid='';
   try{cid=localStorage.getItem('palcoCloudCid')||''}catch(e){}
   if(!cid){cid='tv-'+Math.random().toString(36).slice(2,10);try{localStorage.setItem('palcoCloudCid',cid)}catch(e){}}
@@ -2987,7 +2988,7 @@ function cloudOpen(code,token){
   var socket=ws;
   function current(){return cloudMode&&generation===palcoScanGeneration&&socket===ws}
   ws.onopen=function(){if(!current()){try{socket.close()}catch(e){};return}tries=0;dlog('CLOUD WS OPEN',code);
-    setStatus('● nuvem '+code);
+    setStatus('☁ '+code);
     if(window.__hideSplash)window.__hideSplash();
     try{localStorage.setItem('palcoCloudCode',code)}catch(e){}};
   ws.onmessage=function(ev){if(!current())return;try{handle(JSON.parse(ev.data))}catch(e){}};
@@ -2995,7 +2996,7 @@ function cloudOpen(code,token){
     if(!current())return;
     dlog('CLOUD WS CLOSE',ev&&ev.code);
     stopMediaOnServerLoss();showIdle();
-    if(ev&&ev.code===4404){setStatus('sessão inválida — tecla vermelha p/ novo código',true);cloudMode=false;return}
+    if(ev&&ev.code===4404){setStatus(PALCO_I18N.t('t_session_invalid_red'),true);cloudMode=false;return}
     // 4409 = join recusado (ex.: sessão recém-recriada) — reseta backoff pra
     // tentar de novo rápido em vez de esperar 10s crescendo.
     if(ev&&(ev.code===4409||ev.code===4400)){tries=0}
@@ -3004,7 +3005,7 @@ function cloudOpen(code,token){
 }
 function cloudRetry(){
   var wait=Math.min(1000*Math.pow(2,tries++),10000);
-  setStatus('nuvem: reconectando em '+Math.round(wait/1000)+'s',true);
+  setStatus(PALCO_I18N.fmt('t_cloud_reconnecting',{n:Math.round(wait/1000)}),true);
   cloudTimer=setTimeout(function(){if(cloudMode&&cloudCode)cloudConnect(cloudCode)},wait);
 }
 
@@ -3018,18 +3019,18 @@ function cloudCreate(){
   clearTimeout(cloudTimer);
   cloudMode=true;cloudCode='';
   var base=cloudApi.replace(/^ws/,'http');
-  setStatus('nuvem: criando sessão…');
+  setStatus(PALCO_I18N.t('t_cloud_creating'));
   fetch(base+'/sessions',{method:'POST'})
-    .then(function(r){if(!r.ok)throw Error('falha ao criar sessão');return r.json()})
+    .then(function(r){if(!r.ok)throw Error(PALCO_I18N.t('t_session_create_err'));return r.json()})
     .then(function(j){
       if(!cloudMode||generation!==palcoScanGeneration)return;
       cloudCode=String(j.code||'').toUpperCase();
-      if(!cloudCode)throw Error('sessão inválida');
+      if(!cloudCode)throw Error(PALCO_I18N.t('t_session_invalid2'));
       try{localStorage.setItem('palcoCloudCode',cloudCode)}catch(e){}
       showCloudPair(cloudCode);
       cloudOpen(cloudCode,j.token);
     })
-    .catch(function(e){if(!cloudMode||generation!==palcoScanGeneration)return;setStatus('nuvem: '+e.message,true);cloudMode=false;retry()});
+    .catch(function(e){if(!cloudMode||generation!==palcoScanGeneration)return;setStatus('☁ '+e.message,true);cloudMode=false;retry()});
 }
 
 // ===== QRCode minimal (qrcodegen, MIT, Nayuki) — só o necessário p/ v1 =====
@@ -3056,10 +3057,10 @@ function showCloudPair(code){
     for(var y=0;y<count;y++)for(var x=0;x<count;x++)if(qr.isDark(y,x))ctx.fillRect(x*px,y*px,px,px);
     t.style.width='22vh';t.style.height='22vh';t.style.borderRadius='1vh';t.style.background='#fff';
     wrap.appendChild(t);
-  }catch(e){dlog('QR falhou (código em texto segue):',e&&e.message)}
+  }catch(e){dlog('QR_FAILED_FALLBACK_TEXT',e&&e.message)}
   var info=document.createElement('div');
   info.style.cssText='text-align:left';
-  info.innerHTML='<div style="font-size:2.4vh;opacity:.75">Acesse e informe o código</div>'+
+  info.innerHTML='<div style="font-size:2.4vh;opacity:.75">'+PALCO_I18N.t('t_visit_enter_code')+'</div>'+
     '<div style="font-size:9vh;font-weight:800;letter-spacing:1.2vh;line-height:1.15;color:#FCCE02">'+code+'</div>'+
     '<div style="font-size:2vh;opacity:.6">app.pianolouvorja.com.br</div>';
   wrap.appendChild(info);
@@ -3111,7 +3112,7 @@ function ytPost(cmd){
 function stopYoutube(){ytId=null;if(ytFrame){ytFrame.remove();ytFrame=null}}
 function handleYoutube(m){
   if(m.action==='captions'){ytPost({action:'captions',captionsHidden:m.captionsHidden===true});return}
-  if(m.action==='stop'){stopYoutube();showIdle('Aguardando transmissão…');return}
+  if(m.action==='stop'){stopYoutube();showIdle(PALCO_I18N.t('t_waiting_media'));return}
   if(m.youtubeId&&/^[\w-]{11}$/.test(m.youtubeId)){
     ytPaused=m.paused===true;
     if(m.youtubeId===ytId&&ytFrame){ytPost({positionMs:m.positionMs,paused:ytPaused});return}
@@ -3133,8 +3134,8 @@ function handleYoutube(m){
 window.addEventListener('message',function(e){
   const d=e.data;
   if(!d||d.louvorjaYoutube!==true||!ytId)return;
-  if(d.error!=null){stopYoutube();showIdle('YouTube: não foi possível reproduzir este vídeo.')}
-  else if(d.state===0){stopYoutube();showIdle('Aguardando transmissão…');sendEvent({v:2,type:'ended',media:'video'})}
+  if(d.error!=null){stopYoutube();showIdle(PALCO_I18N.t('t_yt_err'))}
+  else if(d.state===0){stopYoutube();showIdle(PALCO_I18N.t('t_waiting_media'));sendEvent({v:2,type:'ended',media:'video'})}
 });
 // F3.3e: fallback de cover — sem capa ou capa quebrada = logo da org.
 // Cover relativo (images/... ou covers/...) resolve contra / do sender.
@@ -3164,7 +3165,7 @@ function hideNp(){
 }
 
 const a0=$('audio');
-a0.onended=()=>showIdle('Aguardando transmissão…');
+a0.onended=()=>showIdle(PALCO_I18N.t('t_waiting_media'));
 let pendingPlay=false;
 // F3.3h: autoplay-mudo — o browser bloqueia play() COM SOM sem gesto, mas
 // permite MUDO. Estratégia Chromecast-like: play com som falha → retry
@@ -3182,7 +3183,7 @@ function showMuteBadge(){
   b.style.cssText='position:fixed;top:3vh;right:3vh;z-index:98;cursor:pointer;'+
     'background:rgba(0,0,0,.75);border-radius:3vh;padding:1.5vh 2.5vh;'+
     'font-size:2.4vh;color:#fff;display:flex;align-items:center;gap:1.2vh';
-  b.innerHTML='<span style="font-size:3vh">🔇</span> Toque para ativar o som';
+  b.innerHTML='<span style="font-size:3vh">🔇</span> '+PALCO_I18N.t('t_sound_tap');
   b.addEventListener('click',unmuteNow);
   document.body.appendChild(b);
 }
@@ -3298,7 +3299,7 @@ function openIpEntry(){
   ipEntry.style.cssText='position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.85);'+
     'display:flex;align-items:center;justify-content:center';
   ipEntry.innerHTML='<div style="text-align:center">'+
-    '<p style="font-size:2.6vh;opacity:.7;margin:0 0 2vh 0">CÓDIGO (6 letras/números) · IP · IP:PORTA — ou SÓ A PORTA (ex.: 47181) para achar o LouvorJA na rede</p>'+
+    '<p style="font-size:2.6vh;opacity:.7;margin:0 0 2vh 0">'+PALCO_I18N.t('t_code_overlay_title')+'</p>'+
     '<p id="ipVal" style="font-size:6vh;font-weight:700;letter-spacing:.5vh;margin:0;'+
     'min-height:7vh;border-bottom:.3vh solid #FCCE02;padding:0 4vh"></p>'+
     '<p style="font-size:1.8vh;opacity:.5;margin:2vh 0 0 0">OK conectar · amarela digita : · vermelha cancelar · backspace apaga</p></div>';
@@ -3335,7 +3336,7 @@ function submitIp(){
     port=v;localStorage.setItem('palcoPort',port);tries=0;closeIpEntry();
     try{if(ws)ws.close()}catch(e){}
     host='';localStorage.removeItem('palcoHost');
-    setStatus('procurando LouvorJA na porta '+port+'…');
+    setStatus(PALCO_I18N.fmt('t_searching_port',{n:port}));
     connect();
     return;
   }
@@ -3383,7 +3384,7 @@ window.addEventListener('keydown',function(e){
     {const a=$('audio');a.pause();a.removeAttribute('src');a.load();}
     {const v=$('video');v.pause();v.removeAttribute('src');v.style.display='none';v.load();}
     hideNp();
-    showIdle('Aguardando transmissão…');
+    showIdle(PALCO_I18N.t('t_waiting_media'));
     return;
   }
   // vermelha ou "0" no idle abre entrada de IP (controle sem colorida)
@@ -3525,7 +3526,7 @@ function handle(m){
     const _v=$('video'),_a=$('audio');
     const mediaActive=(_v&&!_v.paused&&_v.style.display!=='none')||(_a&&!_a.paused)||window.__videoAudioActive;
     if(mediaActive&&fresh&&!window.__mediaLock){
-      try{dlog('BLOCKED',m.type,'— mídia externa ativa')}catch(e){}
+      try{dlog('BLOCKED',m.type,'MEDIA_EXTERNAL_ACTIVE')}catch(e){}
       return;
     }
   }
@@ -3538,7 +3539,7 @@ function handle(m){
     try{const _v2=$('video'),_a2=$('audio');_v2.pause();_v2.removeAttribute('src');_v2.load();_a2.pause()}catch(e){}
   }
   if(m.type==='mirror-signal'){
-    cleanMirror.handle(m).catch(function(){showIdle('Não foi possível conectar a transmissão do player.')});return;
+    cleanMirror.handle(m).catch(function(){showIdle(PALCO_I18N.t('t_media_connect_err'))});return;
   }
   if(m.type==='video'&&m.cleanMirror&&typeof m.mirrorSession==='string'){
     if(ytId)stopYoutube();hideIdle();hideNp();
@@ -3548,7 +3549,7 @@ function handle(m){
   if(cleanMirror.active()){
     if(m.type==='audio'&&!m.url)return;
     if(m.type==='video'&&!m.url&&!m.youtubeId){
-      if(m.action==='stop'){cleanMirror.stop();showIdle('Aguardando transmissão…')}
+      if(m.action==='stop'){cleanMirror.stop();showIdle(PALCO_I18N.t('t_waiting_media'))}
       return;
     }
     if(['video','audio','projection','timer','clock','idle','bgPalco','stop-all'].includes(m.type))cleanMirror.stop();
@@ -3709,14 +3710,14 @@ function handle(m){
             const apply=()=>{try{a.currentTime=m.positionMs/1000}catch(e){}};
             if(a.readyState>=1)apply();else a.addEventListener('loadedmetadata',apply,{once:true});
           }
-          a.onended=()=>{hideNp();showIdle('Aguardando transmissão…')};
+          a.onended=()=>{hideNp();showIdle(PALCO_I18N.t('t_waiting_media'))};
           // Áudio "desconhecido" (sem metadados): now-playing padrão do
           // Palco — sem nome de arquivo, com a animação eq indicando que
           // há algo tocando. Mesmo visual do "só áudio" do app.
           if(m.title){
             showNp(m.title, m.subtitle||'', m.cover||'');
           }else{
-            showNp('Reproduzindo áudio', m.subtitle||'', m.cover||'');
+            showNp(PALCO_I18N.t('t_playing_audio'), m.subtitle||'', m.cover||'');
           }
           $('bg').src=m.background?proxyUrl(m.background):'bg-fallback.png';
         }
@@ -3731,21 +3732,21 @@ function handle(m){
         // Now-playing tardio APENAS se não há projeção ativa na TV.
         // Hino da liturgia = projection (letra) + audio juntos: o np não
         // pode cobrir a letra projetada (caso real: hino mostrava
-        // 'Reproduzindo áudio' em vez da letra).
+        // PALCO_I18N.t('t_playing_audio') em vez da letra).
         const np=$('np');
         const textEl=$('text');
         const hasProjection=textEl&&textEl.innerHTML&&textEl.innerHTML.trim()!==''&&np.style.display==='none';
         if(np.style.display==='none'&&!hasProjection){
-          showNp(m.title||'Reproduzindo áudio', m.subtitle||'', m.cover||'');
+          showNp(m.title||PALCO_I18N.t('t_playing_audio'), m.subtitle||'', m.cover||'');
           if(!m.background)$('bg').src='bg-fallback.png';
         }
         if(a.paused){dlog('PLAY src='+(a.src||'').slice(0,60));playWithFallback()}
-        else dlog('PLAY ignorado — já tocando');
+        else dlog('PLAY_IGNORED_ALREADY_PLAYING');
       }
       if(m.action==='pause'&&!a.paused)a.pause();
       if(m.action==='stop'){
         if(!window.__videoAudioActive){
-          a.pause();a.currentTime=0;showIdle('Aguardando transmissão…')}}
+          a.pause();a.currentTime=0;showIdle(PALCO_I18N.t('t_waiting_media'))}}
       if(m.action==='seek'){
         const target=(m.position||m.positionMs/1000||0);
         // só corrige se o desvio for perceptível — micro-sync causa stutter
@@ -3767,8 +3768,8 @@ function handle(m){
         const av=$('audio');const next=proxyUrl(m.url);
         window.__videoAudioActive=true;
         if(av.src!==next){av.src=next;
-          av.onended=()=>{hideNp();showIdle('Aguardando transmissão…')};
-          showNp(m.title||'Reproduzindo áudio', m.subtitle||'', m.cover||'');
+          av.onended=()=>{hideNp();showIdle(PALCO_I18N.t('t_waiting_media'))};
+          showNp(m.title||PALCO_I18N.t('t_playing_audio'), m.subtitle||'', m.cover||'');
           $('bg').src=m.background?proxyUrl(m.background):'bg-fallback.png';}
         if(m.action!=='pause'&&m.action!=='stop'&&av.paused)playWithFallback();
         if(m.action==='pause'&&!av.paused)av.pause();
@@ -3783,7 +3784,7 @@ function handle(m){
       {const a=$('audio');
         if(a&&a.src&&!(m.action==='stop'&&!m.url)){a.pause();a.removeAttribute('src');a.load()}}
       if(m.action==='stop'){v.pause();v.removeAttribute('src');v.style.display='none';
-        v.load();showIdle('Aguardando transmissão…');
+        v.load();showIdle(PALCO_I18N.t('t_waiting_media'));
         sendEvent({v:2,type:'ended',media:'video'});break}
       if(m.url){v.src=proxyUrl(m.url);v.style.display='';
         // Sync inicial (padrão F3.3g do áudio): positionMs aplicado antes
@@ -3793,7 +3794,7 @@ function handle(m){
           if(v.readyState>=1)apply();else v.addEventListener('loadedmetadata',apply,{once:true});
         }
         v.onended=()=>{v.style.display='none';v.removeAttribute('src');v.load();
-          showIdle('Aguardando transmissão…');
+          showIdle(PALCO_I18N.t('t_waiting_media'));
           sendEvent({v:2,type:'ended',media:'video'})}}
       if(m.action==='seek'){
         const target=(m.position||((m.positionMs||0)/1000)||0);
@@ -3847,7 +3848,7 @@ function handle(m){
       t._iv=setInterval(()=>{rem-=1000;elapsed+=1000;render();
         if(mode!=='chrono'&&rem<=0){clearInterval(t._iv)}},1000);
       break}
-    case 'idle':showIdle(m.msg||'Aguardando transmissão…');break;
+    case 'idle':showIdle(m.msg||PALCO_I18N.t('t_waiting_media'));break;
     // F3.3x: sender informa IP DA TV (visto pelo socket) + SLOT onde ela
     // caiu — identificação visível pro operador conferir com o app.
     case 'youare':{
@@ -3857,7 +3858,7 @@ function handle(m){
         if(isMain)who='Principal (espelho)';
         var el=document.getElementById('idleConn');
         if(el&&document.getElementById('idle')&&!document.getElementById('idle').classList.contains('hidden'))
-          el.textContent=who+' · TV '+m.ip+' · conectado · vermelha = digitar IP';
+          el.textContent=PALCO_I18N.fmt('t_tv_connected',{a:who,b:m.ip});
         try{
           localStorage.setItem('palcoSelfIp',m.ip);
           localStorage.setItem('palcoSlotLabel',who);
