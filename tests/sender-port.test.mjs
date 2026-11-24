@@ -39,6 +39,7 @@ fetch: (url) => {
       }
       return Promise.reject(new Error('refused'))
     },
+    PALCO_I18N: { t: (k, vars) => { let s = k; if (vars) for (const v of Object.keys(vars)) s = s.split('{' + v + '}').join(String(vars[v])); return s }, fmt: (k, vars) => k },
   })
   const code = [
     slice('function proxyUrl(original){', 'function setStatus('),
@@ -77,7 +78,7 @@ test('TV movida para outra conexão do Palco continua nela', async () => {
 test('acha o computador atualizado na porta nova', async () => {
   const r = receiver({ open: ['192.168.1.20:47080'] })
   assert.equal(await r.context.probeSender('192.168.1.20'), '192.168.1.20')
-  assert.equal(r.state().port, '47081')
+  assert.equal(r.state().port, '47181')
 })
 
 test('acha o celular (APK) ou computador antigo na porta 7080', async () => {
@@ -95,13 +96,13 @@ test('acha o celular (APK novo) na porta 4980', async () => {
 test('desktop e APK novo na mesma máquina: prefere o desktop', async () => {
   const r = receiver({ open: ['192.168.1.36:4980', '192.168.1.36:47080'] })
   await r.context.probeSender('192.168.1.36')
-  assert.equal(r.state().port, '47081')
+  assert.equal(r.state().port, '47181')
 })
 
 test('com as duas portas respondendo, prefere a nova', async () => {
   const r = receiver({ open: ['192.168.1.40:7080', '192.168.1.40:47080'] })
   await r.context.probeSender('192.168.1.40')
-  assert.equal(r.state().port, '47081')
+  assert.equal(r.state().port, '47181')
 })
 
 test('porta salva de uma conexão anterior é tentada primeiro, sem perder as outras', async () => {
@@ -141,7 +142,8 @@ test('mídia remota e capas passam pela porta HTTP de quem transmite', async () 
 })
 
 test('a dica de porta manual cita a porta do Palco', () => {
-  assert.match(html, /SÓ A PORTA \(ex\.: 47181\)/)
+  // i18n: a dica vive no catálogo (t_code_overlay_title) — PT no es, EN no en
+  assert.match(html, /t_code_overlay_title/)
 })
 
 test('Android TV descobre o sender usando o IP local informado pelo Flutter', async () => {
@@ -157,7 +159,7 @@ test('Android TV descobre o sender usando o IP local informado pelo Flutter', as
   const found = await r.context.scanSubnet()
 
   assert.equal(found, '192.168.18.12')
-  assert.equal(r.state().port, '47081')
+  assert.equal(r.state().port, '47181')
 })
 
 test('aviso do Flutter inicia descoberta na rede local da TV', async () => {
