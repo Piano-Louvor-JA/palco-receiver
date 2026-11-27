@@ -197,6 +197,116 @@ window.addEventListener('unhandledrejection',function(){palcoDiag('javascript_re
   /* Vídeo acima do idle (z=20) — idle nunca pode cobrir reprodução. */
   #video{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:contain;
     background:#000;z-index:20}
+  /* Transição dos slides (músicas e Bíblia): o app manda `transition` só
+     quando as transições estão habilitadas na Personalização. */
+  /* Transições dos slides (paridade screen-transitions.css dos monitores do
+     app): saída no fantasma do texto anterior e depois entrada do novo.
+     translate/scale/rotate avulsos somam ao transform que posiciona o #text;
+     3D usa --rx-base (transform atual). TV antiga sem esses avulsos recebe
+     esmaecer (projectionEnterKind). */
+  @keyframes rxInFade{from{opacity:0}}
+  @keyframes rxOutFade{to{opacity:0}}
+  .rx-enter-fade{animation:rxInFade var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-fade{animation:rxOutFade var(--rx-ms,250ms) ease both}
+  @keyframes rxInSlide{from{opacity:0;translate:0 4vh}}
+  @keyframes rxOutSlide{to{opacity:0;translate:0 -2vh}}
+  .rx-enter-slide{animation:rxInSlide var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-slide{animation:rxOutSlide var(--rx-ms,250ms) ease both}
+  @keyframes rxInZoom{from{opacity:0;scale:.94}}
+  @keyframes rxOutZoom{to{opacity:0;scale:1.03}}
+  .rx-enter-zoom{animation:rxInZoom var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-zoom{animation:rxOutZoom var(--rx-ms,250ms) ease both}
+  @keyframes rxInSlideDown{from{opacity:0;translate:0 -4vh}}
+  @keyframes rxOutSlideDown{to{opacity:0;translate:0 2vh}}
+  .rx-enter-slide-down{animation:rxInSlideDown var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-slide-down{animation:rxOutSlideDown var(--rx-ms,250ms) ease both}
+  @keyframes rxInSlideLeft{from{opacity:0;translate:8vw 0}}
+  @keyframes rxOutSlideLeft{to{opacity:0;translate:-8vw 0}}
+  .rx-enter-slide-left{animation:rxInSlideLeft var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-slide-left{animation:rxOutSlideLeft var(--rx-ms,250ms) ease both}
+  @keyframes rxInSlideRight{from{opacity:0;translate:-8vw 0}}
+  @keyframes rxOutSlideRight{to{opacity:0;translate:8vw 0}}
+  .rx-enter-slide-right{animation:rxInSlideRight var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-slide-right{animation:rxOutSlideRight var(--rx-ms,250ms) ease both}
+  @keyframes rxInZoomOut{from{opacity:0;scale:1.12}}
+  @keyframes rxOutZoomOut{to{opacity:0;scale:.9}}
+  .rx-enter-zoom-out{animation:rxInZoomOut var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-zoom-out{animation:rxOutZoomOut var(--rx-ms,250ms) ease both}
+  @keyframes rxInBlur{from{opacity:0;filter:blur(14px)}}
+  @keyframes rxOutBlur{to{opacity:0;filter:blur(14px)}}
+  .rx-enter-blur{animation:rxInBlur var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-blur{animation:rxOutBlur var(--rx-ms,250ms) ease both}
+  @keyframes rxInWipe{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+  @keyframes rxOutWipe{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(0 0 0 100%)}}
+  .rx-enter-wipe{animation:rxInWipe var(--rx-ms,250ms) cubic-bezier(.65,0,.35,1) var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-wipe{animation:rxOutWipe var(--rx-ms,250ms) cubic-bezier(.65,0,.35,1) both}
+  @keyframes rxInIris{from{clip-path:circle(0% at 50% 50%)}to{clip-path:circle(75% at 50% 50%)}}
+  @keyframes rxOutIris{from{clip-path:circle(75% at 50% 50%)}to{clip-path:circle(0% at 50% 50%)}}
+  .rx-enter-iris{animation:rxInIris var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-iris{animation:rxOutIris var(--rx-ms,250ms) ease both}
+  @keyframes rxInCurtain{from{clip-path:inset(0 50% 0 50%)}to{clip-path:inset(0 0 0 0)}}
+  @keyframes rxOutCurtain{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(0 50% 0 50%)}}
+  .rx-enter-curtain{animation:rxInCurtain var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-curtain{animation:rxOutCurtain var(--rx-ms,250ms) ease both}
+  @keyframes rxInFlip{from{opacity:0;transform:var(--rx-base) perspective(1200px) rotateX(-75deg)}to{transform:var(--rx-base) perspective(1200px) rotateX(0deg)}}
+  @keyframes rxOutFlip{from{transform:var(--rx-base) perspective(1200px) rotateX(0deg)}to{opacity:0;transform:var(--rx-base) perspective(1200px) rotateX(75deg)}}
+  .rx-enter-flip{animation:rxInFlip var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-flip{animation:rxOutFlip var(--rx-ms,250ms) ease both}
+  @keyframes rxInDrop{from{opacity:0;translate:0 -8vh}}
+  @keyframes rxOutDrop{to{opacity:0;translate:0 3vh}}
+  .rx-enter-drop{animation:rxInDrop var(--rx-ms,250ms) cubic-bezier(.34,1.56,.64,1) var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-drop{animation:rxOutDrop var(--rx-ms,250ms) ease both}
+  @keyframes rxInRotate{from{opacity:0;rotate:-8deg;scale:.9}}
+  @keyframes rxOutRotate{to{opacity:0;rotate:8deg;scale:.9}}
+  .rx-enter-rotate{animation:rxInRotate var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-rotate{animation:rxOutRotate var(--rx-ms,250ms) ease both}
+  @keyframes rxInSwing{from{opacity:0;transform:var(--rx-base) perspective(1200px) rotateY(-70deg)}to{transform:var(--rx-base) perspective(1200px) rotateY(0deg)}}
+  @keyframes rxOutSwing{from{transform:var(--rx-base) perspective(1200px) rotateY(0deg)}to{opacity:0;transform:var(--rx-base) perspective(1200px) rotateY(70deg)}}
+  .rx-enter-swing{animation:rxInSwing var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-swing{animation:rxOutSwing var(--rx-ms,250ms) ease both}
+  @keyframes rxInFlipH{from{opacity:0;transform:var(--rx-base) perspective(1200px) rotateY(-80deg)}to{transform:var(--rx-base) perspective(1200px) rotateY(0deg)}}
+  @keyframes rxOutFlipH{from{transform:var(--rx-base) perspective(1200px) rotateY(0deg)}to{opacity:0;transform:var(--rx-base) perspective(1200px) rotateY(80deg)}}
+  .rx-enter-flip-h{animation:rxInFlipH var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-flip-h{animation:rxOutFlipH var(--rx-ms,250ms) ease both}
+  @keyframes rxInPop{from{opacity:0;scale:.6}}
+  @keyframes rxOutPop{to{opacity:0;scale:.85}}
+  .rx-enter-pop{animation:rxInPop var(--rx-ms,250ms) cubic-bezier(.34,1.56,.64,1) var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-pop{animation:rxOutPop var(--rx-ms,250ms) ease both}
+  @keyframes rxInStretch{from{opacity:0;scale:.1 1}}
+  @keyframes rxOutStretch{to{opacity:0;scale:.1 1}}
+  .rx-enter-stretch{animation:rxInStretch var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-stretch{animation:rxOutStretch var(--rx-ms,250ms) ease both}
+  @keyframes rxInCinema{from{clip-path:inset(50% 0 50% 0)}to{clip-path:inset(0 0 0 0)}}
+  @keyframes rxOutCinema{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(50% 0 50% 0)}}
+  .rx-enter-cinema{animation:rxInCinema var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-cinema{animation:rxOutCinema var(--rx-ms,250ms) ease both}
+  @keyframes rxInWipeUp{from{clip-path:inset(100% 0 0 0)}to{clip-path:inset(0 0 0 0)}}
+  @keyframes rxOutWipeUp{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(0 0 100% 0)}}
+  .rx-enter-wipe-up{animation:rxInWipeUp var(--rx-ms,250ms) cubic-bezier(.65,0,.35,1) var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-wipe-up{animation:rxOutWipeUp var(--rx-ms,250ms) cubic-bezier(.65,0,.35,1) both}
+  @keyframes rxInWipeDown{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+  @keyframes rxOutWipeDown{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(100% 0 0 0)}}
+  .rx-enter-wipe-down{animation:rxInWipeDown var(--rx-ms,250ms) cubic-bezier(.65,0,.35,1) var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-wipe-down{animation:rxOutWipeDown var(--rx-ms,250ms) cubic-bezier(.65,0,.35,1) both}
+  @keyframes rxInDiagonal{from{clip-path:polygon(0 0,0 0,0 0)}to{clip-path:polygon(0 0,200% 0,0 200%)}}
+  @keyframes rxOutDiagonal{from{clip-path:polygon(0 0,200% 0,0 200%)}to{clip-path:polygon(0 0,0 0,0 0)}}
+  .rx-enter-diagonal{animation:rxInDiagonal var(--rx-ms,250ms) cubic-bezier(.65,0,.35,1) var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-diagonal{animation:rxOutDiagonal var(--rx-ms,250ms) cubic-bezier(.65,0,.35,1) both}
+  @keyframes rxInGlow{from{opacity:0;filter:brightness(3) blur(6px)}}
+  @keyframes rxOutGlow{to{opacity:0;filter:brightness(3) blur(6px)}}
+  .rx-enter-glow{animation:rxInGlow var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-glow{animation:rxOutGlow var(--rx-ms,250ms) ease both}
+  @keyframes rxInFloat{from{opacity:0;filter:blur(6px);translate:0 3vh}}
+  @keyframes rxOutFloat{to{opacity:0;filter:blur(6px);translate:0 -3vh}}
+  .rx-enter-float{animation:rxInFloat var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-float{animation:rxOutFloat var(--rx-ms,250ms) ease both}
+  @keyframes rxInZoomBlur{from{opacity:0;filter:blur(10px);scale:1.25}}
+  @keyframes rxOutZoomBlur{to{opacity:0;filter:blur(10px);scale:.8}}
+  .rx-enter-zoom-blur{animation:rxInZoomBlur var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-zoom-blur{animation:rxOutZoomBlur var(--rx-ms,250ms) ease both}
+  .rx-enter-swing,.rx-ghost-leave-swing{transform-origin:left center}
+  .rx-ghost{position:fixed;margin:0;pointer-events:none;z-index:6}
+  @media (prefers-reduced-motion: reduce){[class*="rx-enter-"]{animation-name:rxInFade!important}[class*="rx-ghost-leave-"]{animation-name:rxOutFade!important}}
 </style>
 </head>
 <body>
@@ -3470,6 +3580,80 @@ if(SHARE_PANE)window.addEventListener('message',function(e){
   if(e.source===window.parent&&e.data&&typeof e.data==='object')handle(e.data);
 });
 
+// rx-transitions:start
+// Transição dos slides (músicas e Bíblia): só quando o app manda `transition`
+// (transições habilitadas). `transitionName` traz o nome real do catálogo do
+// app; desconhecido, vale o aproximado. Slide novo anima mesmo com a mesma
+// letra; o reenvio do mesmo slide não. Out-in: o novo espera o antigo sair.
+const RX_TRANSITIONS=['fade','slide','zoom','slide-down','slide-left','slide-right','zoom-out','blur','wipe','iris','curtain','flip','drop','rotate','swing','flip-h','pop','stretch','cinema','wipe-up','wipe-down','diagonal','glow','float','zoom-blur'];
+const RX_MOTION=['slide','zoom','slide-down','slide-left','slide-right','zoom-out','drop','rotate','pop','stretch','float','zoom-blur'];
+const RX_ENTER_CLASSES=RX_TRANSITIONS.map(function(n){return 'rx-enter-'+n});
+const RX_GHOST_CLASSES=RX_TRANSITIONS.map(function(n){return 'rx-ghost-leave-'+n});
+let lastProjectionKey='';
+function projectionEnterKind(m){
+  const scoped=m.scope==='bible'||m.scope==='hymns'||m.scope==='media'||m.scope==='hymn';
+  if(!scoped)return null;
+  let kind=RX_TRANSITIONS.indexOf(m.transitionName)>=0?m.transitionName
+    :(m.transition==='fade'||m.transition==='slide'||m.transition==='zoom'?m.transition:null);
+  if(!kind||RX_MOTION.indexOf(kind)<0)return kind;
+  // TV antiga (ex.: webOS 6) sem translate/scale avulsos: esmaecer.
+  try{const css=window.CSS;if(!(css&&css.supports&&css.supports('translate','0 1px')))return 'fade'}catch(e){return 'fade'}
+  return kind;
+}
+function projectionEnterKey(m){
+  const slide=Number.isFinite(Number(m.slideIndex))?Number(m.slideIndex):'';
+  return String(m.scope||'')+'|'+String(m.text||'')+'|'+String(m.footerRef||'')+'|'+(m.isCover===true?'1':'0')+'|'+slide;
+}
+function rxDuration(m){
+  const ms=Number(m.transitionMs);
+  return Number.isFinite(ms)&&ms>=0&&ms<=2000?ms:250;
+}
+/** Fantasma do texto atual (antes de trocar) para a saída. */
+function projectionGhostOf(m,el){
+  if(!projectionEnterKind(m)||projectionEnterKey(m)===lastProjectionKey)return null;
+  if(!el||!el.innerHTML||el.style.display==='none')return null;
+  const r=el.getBoundingClientRect();
+  if(!(r.width>2&&r.height>2))return null;
+  const g=el.cloneNode(true);
+  g.removeAttribute('id');
+  g.classList.remove.apply(g.classList,RX_ENTER_CLASSES);
+  g.classList.add('rx-ghost');
+  g.style.left=r.left+'px';g.style.top=r.top+'px';g.style.width=r.width+'px';g.style.transform='none';
+  (el.parentNode||document.body).appendChild(g);
+  return g;
+}
+function dismissProjectionGhost(ghost,kind,dur){
+  if(!ghost)return;
+  const done=function(){try{ghost.remove()}catch(e){}};
+  if(!kind){done();return}
+  ghost.style.setProperty('--rx-ms',dur+'ms');
+  ghost.style.setProperty('--rx-base','translate(0,0)');
+  void ghost.offsetWidth;
+  ghost.classList.add('rx-ghost-leave-'+kind);
+  setTimeout(done,dur+80);
+}
+function projectionEnter(m,els,ghost){
+  const kind=projectionEnterKind(m);
+  const key=projectionEnterKey(m);
+  const changed=key!==lastProjectionKey;
+  const hadPrevious=lastProjectionKey!=='';
+  lastProjectionKey=key;
+  const dur=rxDuration(m);
+  dismissProjectionGhost(ghost,kind&&changed?kind:null,dur);
+  els.forEach(function(el){
+    if(!el)return;
+    if(!kind){el.classList.remove.apply(el.classList,RX_ENTER_CLASSES);return}
+    if(!changed)return;
+    el.classList.remove.apply(el.classList,RX_ENTER_CLASSES);
+    const base=getComputedStyle(el).transform;
+    el.style.setProperty('--rx-ms',dur+'ms');
+    el.style.setProperty('--rx-delay',(hadPrevious?dur:0)+'ms');
+    el.style.setProperty('--rx-base',base&&base!=='none'?base:'translate(0,0)');
+    void el.offsetWidth;
+    el.classList.add('rx-enter-'+kind);
+  });
+}
+// rx-transitions:end
 // Zoom do quadro (imagem/PDF/PPT) igual ao do operador: escala + deslocamento
 // em fração da tela, animado para não andar em "degraus".
 function applyFrameView(view,anim){
@@ -3596,7 +3780,9 @@ function handle(m){
       // Slide/PDF/PPT (text vazio) é mídia visual pura: sem véu de leitura,
       // preserva a tonalidade original do canvas do operador.
       $('veil').style.display=m.text?'':'none';
+      const projectionGhost=projectionGhostOf(m,$('text'));
       $('text').innerHTML=m.text||'';
+      projectionEnter(m,[$('text'),$('footer')],projectionGhost);
       $('text').classList.toggle('cover-on',m.isCover===true);
       $('text').classList.toggle('title-box-on',m.isCover===true&&m.titleTextBox===true);
       // F3.3o: fontSize/fontWeight dinâmicos (settings do operador).
@@ -3864,7 +4050,7 @@ function handle(m){
       t._iv=setInterval(()=>{rem-=1000;elapsed+=1000;render();
         if(mode!=='chrono'&&rem<=0){clearInterval(t._iv)}},1000);
       break}
-    case 'idle':showIdle(m.msg||'Aguardando transmissão…');break;
+    case 'idle':lastProjectionKey='';showIdle(m.msg||'Aguardando transmissão…');break;
     // F3.3x: sender informa IP DA TV (visto pelo socket) + SLOT onde ela
     // caiu — identificação visível pro operador conferir com o app.
     case 'youare':{
