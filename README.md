@@ -121,6 +121,22 @@ tag, o canal de updates publica sozinho:
    troca de nome da organização. As demais versões **não têm updater**: a
    atualização é pelo pacote da loja/release ou abrindo o canal no navegador.
 
+Envie cada tag em uma chamada de `git push` separada. O GitHub não gera os
+eventos de publicação quando mais de três tags são enviadas no mesmo push.
+
+Para retomar uma publicação que falhou, preserve as tags existentes e execute
+o workflow da `main`, informando a tag exata:
+
+```bash
+gh workflow run publish-update.yml --ref main -f release_tag=v0.5.0
+gh workflow run ci.yml --ref main -f release_tag=tizen-v0.5.0
+```
+
+A retomada aceita somente tags estáveis que já pertencem ao histórico da
+`main`. O primeiro comando retoma o canal; o segundo recompõe o pacote da
+plataforma indicada, usando os arquivos da tag sem movê-la. Aguarde os checks
+e confira a versão publicada antes de anunciar a atualização.
+
 Canal público (serve receiver em qualquer browser, zero install):
 `https://piano-louvor-ja.github.io/palco-updates/manifest.json`
 
