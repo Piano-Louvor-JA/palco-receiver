@@ -8,40 +8,55 @@ name: Publish update canal
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Tag vX.Y.Z existente na main para retomar a publicação'
+        required: true
+        type: string
 
 permissions:
   contents: write
+
+concurrency:
+  group: palco-publish-update
+  cancel-in-progress: false
 
 jobs:
   publish:
     name: Publicar HTML + manifest no palco-updates
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
     steps:
       - name: Checkout palco-receiver
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
-      - name: Extrair versão
-        id: ver
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
-      - name: Validar versão semver
+      - name: Validar tag e preservar validador da publicação
         run: |
-          V="${GITHUB_REF_NAME#v}"
-          if ! [[ "$V" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Tag '$V' não é X.Y.Z limpo — o updater da TV só compara números"
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "$GITHUB_REF" != refs/heads/main ]]; then
+            echo '::error::A retomada deve usar o workflow da main.'
             exit 1
           fi
+          if ! [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo '::error::A tag de publicação deve ser vX.Y.Z.'
+            exit 1
+          fi
+          RELEASE_SHA=$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+          cp scripts/validate-release-version.mjs "$RUNNER_TEMP/palco-validate-release-version.mjs"
+
+      - name: Checkout da tag existente para retomada
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_tag }}
 
       - name: Sanity versoes iguais
-        run: |
-          V="${GITHUB_REF_NAME#v}"
-          APPINFO=$(node -p "require('./webos/appinfo.json').version")
-          HTML=$(grep -o "window.__PALCO_APPV__||'[0-9.]*'" webos/index.html | head -1 | grep -o "[0-9]*\.[0-9]*\.[0-9]*")
-          echo "tag=$V appinfo=$APPINFO html=$HTML"
-          if [ "$APPINFO" != "$V" ] || [ "$HTML" != "$V" ]; then
-            echo "::error::Versões divergentes — bump esquecido (HTML hardcode e appinfo.json devem bater com a tag)"
-            exit 1
-          fi
+        run: node "$RUNNER_TEMP/palco-validate-release-version.mjs" "$RELEASE_TAG"
 
       - name: Configurar identidade de parceiro do Palco
         env:
@@ -59,7 +74,7 @@ jobs:
 
       - name: Publicar versao
         run: |
-          V="${GITHUB_REF_NAME#v}"
+          V="${RELEASE_TAG#v}"
           cd palco-updates
           mkdir -p "$V"
           cp ../webos/index.html "$V/index.html"
@@ -73,13 +88,13 @@ jobs:
           if git diff --cached --quiet; then
             echo "Nada mudou — skip commit"
           else
-            git commit -m "release: receiver $V (tag ${GITHUB_REF_NAME} do palco-receiver)"
+            git commit -m "release: receiver $V (tag ${RELEASE_TAG} do palco-receiver)"
             git push
           fi
 
       - name: Verificar propagacao no Pages
         run: |
-          V="${GITHUB_REF_NAME#v}"
+          V="${RELEASE_TAG#v}"
           sleep 30
           for i in 1 2 3 4 5 6; do
             CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://piano-louvor-ja.github.io/palco-updates/$V/index.html")

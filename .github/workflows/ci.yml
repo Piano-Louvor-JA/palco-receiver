@@ -5,9 +5,15 @@ on:
     branches: [main, staging]
     tags: ['v*', 'webos-v*', 'androidtv-v*', 'tizen-v*']
   pull_request:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Tag existente para retomar os pacotes, sem mover a tag'
+        required: true
+        type: string
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ inputs.release_tag || github.ref }}
   cancel-in-progress: true
 
 # contents:write necessario APENAS nos jobs de package (release upload).
@@ -22,6 +28,21 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Validar origem da retomada
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$RELEASE_TAG" =~ ^(v|webos-v|androidtv-v|tizen-v)[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          RELEASE_SHA=$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")
+          test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
 
       - uses: actions/setup-node@v7
         with:
@@ -97,6 +118,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
       - uses: actions/setup-node@v7
         with:
           node-version: '20'
@@ -124,10 +147,10 @@ jobs:
           path: webos/*.ipk
 
       - name: Attach to release (tags)
-        if: startsWith(github.ref, 'refs/tags/webos-v')
+        if: startsWith(github.ref, 'refs/tags/webos-v') || (github.event_name == 'workflow_dispatch' && startsWith(inputs.release_tag, 'webos-v'))
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
           files: webos/*.ipk
 
   androidtv-package:
@@ -138,6 +161,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
 
       - uses: actions/setup-java@v6
         with:
@@ -186,10 +211,10 @@ jobs:
           path: androidtv/build/app/outputs/flutter-apk/PalcoLouvorJA-AndroidTV-*.apk
 
       - name: Attach to release (tags)
-        if: startsWith(github.ref, 'refs/tags/androidtv-v')
+        if: startsWith(github.ref, 'refs/tags/androidtv-v') || (github.event_name == 'workflow_dispatch' && startsWith(inputs.release_tag, 'androidtv-v'))
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
           files: androidtv/build/app/outputs/flutter-apk/PalcoLouvorJA-AndroidTV-*.apk
 
   tizen-package:
@@ -200,6 +225,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
 
       - name: Paridade receiver (webos vs tizen)
         run: |
@@ -235,7 +262,7 @@ jobs:
         run: |
           VERSION=$(python3 -c "import xml.etree.ElementTree as ET; print(ET.parse('tizen/config.xml').getroot().get('version'))")
           cd tizen
-          zip -qr "../com.piano.louvorja.palco_${VERSION}.wgt" index.html config.xml logo-piano-louvorja.png logo-louvor-ja.svg bg-fallback.png
+          zip -qr "../com.piano.louvorja.palco_${VERSION}.wgt" index.html config.xml i18n.js network-mirror.js logo-piano-louvorja.png logo-louvor-ja.svg bg-fallback.png splash-palco.jpg splash.jpg
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -244,8 +271,8 @@ jobs:
           path: com.piano.louvorja.palco_*.wgt
 
       - name: Attach to release (tags)
-        if: startsWith(github.ref, 'refs/tags/tizen-v')
+        if: startsWith(github.ref, 'refs/tags/tizen-v') || (github.event_name == 'workflow_dispatch' && startsWith(inputs.release_tag, 'tizen-v'))
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
           files: com.piano.louvorja.palco_*.wgt
