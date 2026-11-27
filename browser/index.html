@@ -4,17 +4,34 @@
 /* X-Client-Platform: este arquivo e o alvo browser. Header so na API. */
 (function(){
   var platform='palco-browser';
+  var partnerConfig=/* PALCO_PARTNER_CONFIG */{"staging":"","production":"","version":"0.4.1"};
   var of=window.fetch;
-  if(!of)return;
+  if(!of||of.__palcoIdentified)return;
   window.fetch=function(i,init){
+    var next=init;
     try{
-      var url=(typeof i==='string')?i:((i&&i.url)||'');
-      if(url.indexOf('/v1/palco')===-1)return of(i,init);
-      var h=new Headers((init&&init.headers)||(i&&i.headers)||undefined);
-      if(!h.has('X-Client-Platform'))h.set('X-Client-Platform',platform);
-      return of(i,Object.assign({},init,{headers:h}));
-    }catch(e){return of(i,init)}
+      var raw=typeof i==='string'?i:((i&&(i.url||i.href))||'');
+      var url=new URL(raw,location.href);
+      var mode=(init&&init.mode)||(i&&i.mode);
+      var http=url.protocol==='http:'||url.protocol==='https:';
+      var palco=url.pathname==='/v1/palco'||url.pathname.indexOf('/v1/palco/')===0;
+      if(http&&palco&&mode!=='no-cors'){
+        var h=new Headers((init&&init.headers)||(i&&i.headers)||undefined);
+        if(!h.has('X-Client-Platform'))h.set('X-Client-Platform',platform);
+        var version=partnerConfig.version||window.__PALCO_APPV__||'';
+        if(version&&!h.has('X-Client-Version'))h.set('X-Client-Version',version);
+        var local=url.hostname==='localhost'||url.hostname==='127.0.0.1';
+        var piano=url.hostname==='api-stg.pianolouvorja.com.br'||url.hostname==='api.pianolouvorja.com.br';
+        if((local||piano)&&(url.protocol==='https:'||local)&&!url.username&&!url.password){
+          var key=url.hostname==='api.pianolouvorja.com.br'?partnerConfig.production:partnerConfig.staging;
+          if(key&&key.indexOf('plj_')===0&&!h.has('X-Partner-Key'))h.set('X-Partner-Key',key);
+        }
+        next=Object.assign({},init,{headers:h});
+      }
+    }catch(e){}
+    return of.call(window,i,next);
   };
+  window.fetch.__palcoIdentified=true;
 })();
 </script>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#000000"><link rel="manifest" href="./manifest.webmanifest"><title>LouvorJA Palco Receiver</title>
