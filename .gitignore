@@ -1,6 +1,8 @@
 *.ipk
 *.wgt
 node_modules/
+roku/node_modules/
+roku/dist/
 .local-tools/
 .DS_Store
 
