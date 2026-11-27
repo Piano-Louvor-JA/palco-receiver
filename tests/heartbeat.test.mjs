@@ -40,6 +40,7 @@ function receiver() {
     stopMediaOnServerLoss: () => {}, showIdle: () => { calls.idle += 1 },
     handle: (m) => calls.handled.push(m),
     connect: () => { calls.connect += 1 },
+    PALCO_I18N: { t: (k, vars) => { let s = k; if (vars) for (const v of Object.keys(vars)) s = s.split('{' + v + '}').join(String(vars[v])); return s }, fmt: (k, vars) => k },
   })
   vm.runInContext(
     slice('function doConnect(){', '// ===== WT-5d') +

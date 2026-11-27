@@ -28,6 +28,7 @@ function receiver({ query = '', fetch = () => Promise.reject(Error('offline')), 
       this.url = url; this.readyState = 0; this.close = () => { this.readyState = 3 }
       sockets.push(this)
     },
+    PALCO_I18N: { t: (k, vars) => { let s = k; if (vars) for (const v of Object.keys(vars)) s = s.split('{' + v + '}').join(String(vars[v])); return s }, fmt: (k, vars) => k },
   })
   vm.runInContext(code + '\nglobalThis.state=()=>({host,port,palcoScanGeneration});', context)
   const run = script => vm.runInContext(script, context)
