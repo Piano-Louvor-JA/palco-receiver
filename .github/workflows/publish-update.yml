@@ -43,6 +43,12 @@ jobs:
             exit 1
           fi
 
+      - name: Configurar identidade de parceiro do Palco
+        env:
+          PARTNER_KEY_STG: ${{ secrets.PARTNER_KEY_STG }}
+          PARTNER_KEY_PROD: ${{ secrets.PARTNER_KEY_PROD }}
+        run: node scripts/configure-partner-key.mjs
+
       - name: Checkout palco-updates gh-pages
         uses: actions/checkout@v7
         with:
