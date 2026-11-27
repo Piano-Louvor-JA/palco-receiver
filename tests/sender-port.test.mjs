@@ -7,6 +7,7 @@ import { readFile } from 'node:fs/promises'
 import vm from 'node:vm'
 
 const html = await readFile(new URL('../webos/index.html', import.meta.url), 'utf8')
+const i18n = await readFile(new URL('../webos/i18n.js', import.meta.url), 'utf8')
 
 function slice(startMarker, endMarker) {
   const start = html.indexOf(startMarker)
@@ -39,6 +40,7 @@ fetch: (url) => {
       }
       return Promise.reject(new Error('refused'))
     },
+    PALCO_I18N: { t: k => k, fmt: (k, vars) => { let s = k; if (vars) for (const v of Object.keys(vars)) s = s.split('{' + v + '}').join(String(vars[v])); return s } },
   })
   const code = [
     slice('function proxyUrl(original){', 'function setStatus('),
@@ -141,7 +143,9 @@ test('mídia remota e capas passam pela porta HTTP de quem transmite', async () 
 })
 
 test('a dica de porta manual cita a porta do Palco', () => {
-  assert.match(html, /SÓ A PORTA \(ex\.: 47181\)/)
+  // i18n: a dica vive no catálogo (t_code_overlay_title); em pt-BR cita a porta do Palco
+  assert.match(html, /data-i18n-title="t_code_overlay_title"|PALCO_I18N\.t\('t_code_overlay_title'\)/)
+  assert.match(i18n, /'pt-BR': \{[\s\S]*?t_code_overlay_title: '[^']*SÓ A PORTA \(ex\.: 47181\)/)
 })
 
 test('Android TV descobre o sender usando o IP local informado pelo Flutter', async () => {

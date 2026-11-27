@@ -5,6 +5,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
 const html = (await readFile(new URL('../webos/index.html', import.meta.url), 'utf8')).replace(/\r\n/g, '\n')
+const i18n = await readFile(new URL('../webos/i18n.js', import.meta.url), 'utf8')
 
 test('a TV se identifica ao conectar (hello com plataforma, id e versão)', () => {
   assert.match(html, /function sendHello\(\)/)
@@ -32,7 +33,9 @@ test('compartilhar: dois painéis, só a página principal conecta', () => {
 })
 
 test('tela de espera: "Aguardando transmissão…" e logo pulsando', () => {
-  assert.match(html, /<p id="idleMsg">Aguardando transmissão…<\/p>/)
+  // i18n: o texto vem do catálogo (t_waiting_media); em pt-BR continua "Aguardando transmissão…"
+  assert.match(html, /<p id="idleMsg" data-i18n="t_waiting_media">[^<]+<\/p>/)
+  assert.match(i18n, /'pt-BR': \{[\s\S]*?t_waiting_media: 'Aguardando transmissão…'/)
   assert.doesNotMatch(html, /Aguardando conteúdo/)
   assert.match(html, /#idleLogo\{animation:idleLogoFade 3\.2s ease-in-out infinite\}/)
 })
