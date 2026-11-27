@@ -38,6 +38,7 @@ function receiver({ idle = true, tizen = null } = {}) {
   }
   if (tizen) win.tizen = tizen
   const context = vm.createContext({
+    PALCO_I18N: { t: k => k, fmt: (k, vars) => { let s = k; if (vars) for (const v of Object.keys(vars)) s = s.split('{' + v + '}').join(String(vars[v])); return s } },
     clearTimeout, cloudTimer: null,
     connect: () => calls.push('scan'),
     window: win,

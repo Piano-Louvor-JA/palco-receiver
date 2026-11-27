@@ -10,6 +10,7 @@ function receiver({ query = '', fetch = () => Promise.reject(Error('offline')), 
   const messages = [], diagnostics = [], sockets = [], timers = new Map()
   let timerId = 0
   const context = vm.createContext({
+    PALCO_I18N: { t: k => k, fmt: (k, vars) => { let s = k; if (vars) for (const v of Object.keys(vars)) s = s.split('{' + v + '}').join(String(vars[v])); return s } },
     URLSearchParams, AbortController, fetch,
     qs: new URLSearchParams(query), cloudMode: false, ws: null, tries: 0,
     location: { hostname: '', protocol: 'file:' },

@@ -24,6 +24,7 @@ function receiver() {
     close() { this.closed = true; this.readyState = 3 }
   }
   const context = vm.createContext({
+    PALCO_I18N: { t: k => k, fmt: (k, vars) => { let s = k; if (vars) for (const v of Object.keys(vars)) s = s.split('{' + v + '}').join(String(vars[v])); return s } },
     WebSocket: FakeSocket,
     localStorage: { setItem() {}, removeItem() {}, getItem: () => null },
     window: { addEventListener: (name, fn) => { calls.listeners[name] = fn } },
