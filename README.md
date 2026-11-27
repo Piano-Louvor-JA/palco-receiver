@@ -51,6 +51,39 @@ Validação sem TV física: **Remote Test Lab** (TVs reais na nuvem, grátis).
 Escala: **TV Seller Office** (nota: Public Seller só distribui nos EUA;
 Brasil exige Partner Seller).
 
+## Identificação das requisições à API
+
+O receiver faz chamadas HTTP próprias ao relay (`/v1/palco/sessions` e busca
+do token da sessão). Essas chamadas enviam `X-Client-Platform`
+(`palco-webos`, `palco-tizen`, `palco-androidtv` ou `palco-browser`) e
+`X-Client-Version`. Quando configurado, `X-Partner-Key` identifica o parceiro
+Palco, independentemente do cliente que controla a sessão.
+
+Crie chaves próprias do Palco em cada banco da API e cadastre os secrets
+`PARTNER_KEY_STG` e `PARTNER_KEY_PROD` neste repositório. Não reutilize as
+chaves do desktop, APK operador ou web. Os jobs de empacotamento e publicação
+executam `node scripts/configure-partner-key.mjs` antes de gerar os artefatos.
+O mesmo comando pode ser executado localmente com essas variáveis de ambiente;
+sem elas, o receiver mantém o acesso sem chave de parceiro.
+
+A configuração é incorporada no HTML, sem arquivo externo adicional. O script
+lê a versão de `webos/appinfo.json`, sincroniza a configuração nos quatro
+receivers e não imprime os valores das chaves. Ambas as chaves podem estar no
+pacote: a URL efetiva escolhe staging ou produção. Somente as APIs HTTPS
+`api-stg.pianolouvorja.com.br` e `api.pianolouvorja.com.br`, além da API local
+em `localhost`/`127.0.0.1`, recebem a chave configurada nas rotas `/v1/palco`.
+Upstream, CDN, Google/Firebase, chamadas LAN de `/status` e requisições
+`no-cors` não recebem essa chave. A configuração não altera a URL do relay
+selecionada pelo launcher ou por `?api=`.
+Se o launcher usar o relay upstream `api.louvorja.com.br`, não será enviada
+chave de parceiro. Para identificação na API Piano, a URL do relay deve
+apontar para a API Piano do ambiente correspondente.
+
+O token de parceiro é um identificador distribuído e revogável. Ele não
+substitui o token da sessão do palco. O WebSocket mantém seu mecanismo atual
+de autenticação e não recebe a chave de parceiro na URL. Uma chave de parceiro
+desconhecida ou revogada enviada à API causa 401 nas chamadas HTTP.
+
 ## Releases
 
 IPKs e APKs publicados em

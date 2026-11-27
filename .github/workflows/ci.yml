@@ -104,6 +104,12 @@ jobs:
       - name: Install webOS CLI
         run: npm install -g @webos-tools/cli
 
+      - name: Configurar identidade de parceiro do Palco
+        env:
+          PARTNER_KEY_STG: ${{ secrets.PARTNER_KEY_STG }}
+          PARTNER_KEY_PROD: ${{ secrets.PARTNER_KEY_PROD }}
+        run: node scripts/configure-partner-key.mjs
+
       - name: Package ipk
         run: |
           cd webos
@@ -154,6 +160,12 @@ jobs:
       - name: Flutter tests (real native HTTP included)
         working-directory: androidtv
         run: flutter test
+
+      - name: Configurar identidade de parceiro do Palco
+        env:
+          PARTNER_KEY_STG: ${{ secrets.PARTNER_KEY_STG }}
+          PARTNER_KEY_PROD: ${{ secrets.PARTNER_KEY_PROD }}
+        run: node scripts/configure-partner-key.mjs
 
       - name: Build APK release
         working-directory: androidtv
@@ -212,6 +224,12 @@ jobs:
           assert re.fullmatch(re.escape(pkg) + r'\.[A-Za-z0-9]+', app.get('id') or ''), 'id deve ser <package>.<nome>'
           print('config.xml OK:', app.get('id'))
           "
+
+      - name: Configurar identidade de parceiro do Palco
+        env:
+          PARTNER_KEY_STG: ${{ secrets.PARTNER_KEY_STG }}
+          PARTNER_KEY_PROD: ${{ secrets.PARTNER_KEY_PROD }}
+        run: node scripts/configure-partner-key.mjs
 
       - name: Empacota wgt
         run: |
