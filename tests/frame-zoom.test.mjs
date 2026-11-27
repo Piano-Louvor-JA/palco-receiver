@@ -5,7 +5,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { runInNewContext } from 'node:vm'
 
-const html = await readFile(new URL('../webos/index.html', import.meta.url), 'utf8')
+const rawHtml = await readFile(new URL('../webos/index.html', import.meta.url), 'utf8')
+const html = rawHtml.replace(/\r\n/g, '\n')
 
 /** Executa o applyFrameView real do receiver com um #bg falso. */
 function frameView() {

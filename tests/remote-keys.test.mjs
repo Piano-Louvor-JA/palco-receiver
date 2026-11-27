@@ -58,6 +58,7 @@ function receiver({ idle = true, tizen = null } = {}) {
     $: () => ({ pause() {}, removeAttribute() {}, load() {}, style: {} }),
     hideNp: () => {},
     showIdle: () => calls.push('idle'),
+    PALCO_I18N: { t: (k, vars) => { let s = k; if (vars) for (const v of Object.keys(vars)) s = s.split('{' + v + '}').join(String(vars[v])); return s }, fmt: (k, vars) => k },
   })
   const code = [
     slice('// ===== Teclas do controle', '// ===== F3.3u'),
