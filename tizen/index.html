@@ -19,7 +19,7 @@ window.addEventListener('unhandledrejection',function(){palcoDiag('javascript_re
   if(window.PalmSystem||window.webOS||window.webOSSystem||/Web0S|webOS/i.test(ua)||/\/webos(\/|$)/i.test(path))platform='palco-webos';
   else if(window.tizen||/Tizen/i.test(ua)||/\/tizen(\/|$)/i.test(path))platform='palco-tizen';
   else if(/Android/i.test(ua)||/\/androidtv(\/|$)/i.test(path))platform='palco-androidtv';
-  var partnerConfig=/* PALCO_PARTNER_CONFIG */{"staging":"","production":"","version":"0.4.1"};
+  var partnerConfig=/* PALCO_PARTNER_CONFIG */{"staging":"","production":"","version":"0.5.0"};
   var of=window.fetch;
   if(!of||of.__palcoIdentified)return;
   window.fetch=function(i,init){
@@ -2696,7 +2696,7 @@ const qs=new URLSearchParams(location.search);
 // Painel da tela compartilhada: não conecta; recebe do pai por postMessage.
 const SHARE_PANE=qs.get('obsPane')==='1';
 // F3.3q: versão no idle (canto inferior direito) — ?v= override ou padrão.
-window.__PALCO_APPV__=window.__PALCO_APPV__||'0.4.1';
+window.__PALCO_APPV__=window.__PALCO_APPV__||'0.5.0';
 (function(){var el=$('idleVer');if(!el)return;var qv=qs.get('v')||window.__PALCO_APPV__||'';if(qv){el.textContent=PALCO_I18N.fmt('t_ver_line',{n:qv});return}fetch('appinfo.json').then(function(r){return r.json()}).then(function(j){el.textContent='PIANO LouvorJA Palco · receiver v'+(j.version||'?')}).catch(function(){fetch('config.xml').then(function(r){return r.text()}).then(function(t){var m2=t.match(/version="([^"]+)"/);el.textContent=PALCO_I18N.fmt('t_ver_line',{n:(m2?m2[1]:'?')})}).catch(function(){el.textContent='PIANO LouvorJA Palco'})})})()
 // webOS: ares-launch -p '{"host":"..."}' chega em PalmSystem.launchParams,
 // NÃO na query string. Merge dos dois (query string tem prioridade).
