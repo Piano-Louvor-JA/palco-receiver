@@ -38,6 +38,9 @@ function receiver({ idle = true, tizen = null } = {}) {
   }
   if (tizen) win.tizen = tizen
   const context = vm.createContext({
+    PALCO_I18N: { t: k => k, fmt: (k, vars) => { let s = k; if (vars) for (const v of Object.keys(vars)) s = s.split('{' + v + '}').join(String(vars[v])); return s } },
+    clearTimeout, cloudTimer: null,
+    connect: () => calls.push('scan'),
     window: win,
     document: doc,
     location: { reload: () => calls.push('reload') },
@@ -133,6 +136,17 @@ test('":" de teclado físico também entra no campo', () => {
   r.press(403)
   r.press(186, ':')
   assert.equal(r.state().val, ':')
+})
+
+test('somente porta configurável inicia o fluxo de descoberta e conexão', () => {
+  const r = receiver()
+  r.press(403)
+  for (const ch of '52001') r.press(48 + Number(ch), ch)
+  r.press(13, 'Enter')
+  assert.equal(r.state().host, '')
+  assert.equal(r.state().port, '52001')
+  assert.equal(r.context.portFixed, true)
+  assert.ok(r.calls.includes('scan'))
 })
 
 test('campo aceita IP:PORTA completo (21 caracteres) e para aí', () => {

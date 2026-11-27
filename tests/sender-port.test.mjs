@@ -7,6 +7,7 @@ import { readFile } from 'node:fs/promises'
 import vm from 'node:vm'
 
 const html = await readFile(new URL('../webos/index.html', import.meta.url), 'utf8')
+const i18n = await readFile(new URL('../webos/i18n.js', import.meta.url), 'utf8')
 
 function slice(startMarker, endMarker) {
   const start = html.indexOf(startMarker)
@@ -19,6 +20,7 @@ function receiver({ query = '', saved = {}, open = [] } = {}) {
   const store = new Map(Object.entries(saved))
   const asked = []
   const context = vm.createContext({
+    setTimeout, clearTimeout, AbortController,
     URLSearchParams,
     qs: new URLSearchParams(query),
     location: { hostname: '', protocol: 'file:' },
@@ -38,6 +40,7 @@ fetch: (url) => {
       }
       return Promise.reject(new Error('refused'))
     },
+    PALCO_I18N: { t: k => k, fmt: (k, vars) => { let s = k; if (vars) for (const v of Object.keys(vars)) s = s.split('{' + v + '}').join(String(vars[v])); return s } },
   })
   const code = [
     slice('function proxyUrl(original){', 'function setStatus('),
@@ -50,9 +53,27 @@ fetch: (url) => {
   return { context, asked, state: () => context.__state() }
 }
 
-test('sem porta escolhida, a padrão é a nova 47081', () => {
+test('sem porta escolhida, a padrão é a do Palco (47181)', () => {
   const { state } = receiver()
-  assert.equal(state().port, '47081')
+  assert.equal(state().port, '47181')
+})
+
+test('desktop atualizado: vai para o Palco (47180), não para a Transmissão (47080)', async () => {
+  const r = receiver({ open: ['192.168.1.21:47080', '192.168.1.21:47180'] })
+  assert.equal(await r.context.probeSender('192.168.1.21'), '192.168.1.21')
+  assert.equal(r.state().port, '47181')
+})
+
+test('TV que estava na 47081 passa para o Palco quando o desktop atualiza', async () => {
+  const r = receiver({ saved: { palcoPort: '47081' }, open: ['192.168.1.22:47080', '192.168.1.22:47180'] })
+  await r.context.probeSender('192.168.1.22')
+  assert.equal(r.state().port, '47181')
+})
+
+test('TV movida para outra conexão do Palco continua nela', async () => {
+  const r = receiver({ saved: { palcoPort: '47183' }, open: ['192.168.1.23:47180', '192.168.1.23:47182'] })
+  await r.context.probeSender('192.168.1.23')
+  assert.equal(r.state().port, '47183')
 })
 
 test('acha o computador atualizado na porta nova', async () => {
@@ -121,8 +142,10 @@ test('mídia remota e capas passam pela porta HTTP de quem transmite', async () 
   assert.equal(apk.context.coverUrl('covers/a.jpg'), 'http://192.168.1.30:7080/covers/a.jpg')
 })
 
-test('a dica de porta manual cita a porta nova', () => {
-  assert.match(html, /SÓ A PORTA \(ex\.: 47081\)/)
+test('a dica de porta manual cita a porta do Palco', () => {
+  // i18n: a dica vive no catálogo (t_code_overlay_title); em pt-BR cita a porta do Palco
+  assert.match(html, /data-i18n-title="t_code_overlay_title"|PALCO_I18N\.t\('t_code_overlay_title'\)/)
+  assert.match(i18n, /'pt-BR': \{[\s\S]*?t_code_overlay_title: '[^']*SÓ A PORTA \(ex\.: 47181\)/)
 })
 
 test('Android TV descobre o sender usando o IP local informado pelo Flutter', async () => {

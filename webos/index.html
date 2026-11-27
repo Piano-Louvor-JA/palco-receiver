@@ -1,6 +1,15 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
+<script src="i18n.js"></script>
+<script>
+// Installed before the main script: parse/runtime errors must be visible too.
+function palcoDiag(kind,code){
+  try{if(window.PalcoDiagnostic)window.PalcoDiagnostic.postMessage(kind+(typeof code==='number'?':'+Math.abs(code):''))}catch(e){}
+}
+window.addEventListener('error',function(e){palcoDiag('javascript_error',e.lineno||0)});
+window.addEventListener('unhandledrejection',function(){palcoDiag('javascript_rejection')});
+</script>
 <script>
 /* X-Client-Platform: telemetria da API. IPK/WGT/APK nao trazem a pasta no path. */
 (function(){
@@ -10,24 +19,41 @@
   if(window.PalmSystem||window.webOS||window.webOSSystem||/Web0S|webOS/i.test(ua)||/\/webos(\/|$)/i.test(path))platform='palco-webos';
   else if(window.tizen||/Tizen/i.test(ua)||/\/tizen(\/|$)/i.test(path))platform='palco-tizen';
   else if(/Android/i.test(ua)||/\/androidtv(\/|$)/i.test(path))platform='palco-androidtv';
+  var partnerConfig=/* PALCO_PARTNER_CONFIG */{"staging":"","production":"","version":"0.5.0"};
   var of=window.fetch;
-  if(!of)return;
+  if(!of||of.__palcoIdentified)return;
   window.fetch=function(i,init){
+    var next=init;
     try{
-      var url=(typeof i==='string')?i:((i&&i.url)||'');
-      if(url.indexOf('/v1/palco')===-1)return of(i,init);
-      var h=new Headers((init&&init.headers)||(i&&i.headers)||undefined);
-      if(!h.has('X-Client-Platform'))h.set('X-Client-Platform',platform);
-      return of(i,Object.assign({},init,{headers:h}));
-    }catch(e){return of(i,init)}
+      var raw=typeof i==='string'?i:((i&&(i.url||i.href))||'');
+      var url=new URL(raw,location.href);
+      var mode=(init&&init.mode)||(i&&i.mode);
+      var http=url.protocol==='http:'||url.protocol==='https:';
+      var palco=url.pathname==='/v1/palco'||url.pathname.indexOf('/v1/palco/')===0;
+      if(http&&palco&&mode!=='no-cors'){
+        var h=new Headers((init&&init.headers)||(i&&i.headers)||undefined);
+        if(!h.has('X-Client-Platform'))h.set('X-Client-Platform',platform);
+        var version=partnerConfig.version||window.__PALCO_APPV__||'';
+        if(version&&!h.has('X-Client-Version'))h.set('X-Client-Version',version);
+        var local=url.hostname==='localhost'||url.hostname==='127.0.0.1';
+        var piano=url.hostname==='api-stg.pianolouvorja.com.br'||url.hostname==='api.pianolouvorja.com.br';
+        if((local||piano)&&(url.protocol==='https:'||local)&&!url.username&&!url.password){
+          var key=url.hostname==='api.pianolouvorja.com.br'?partnerConfig.production:partnerConfig.staging;
+          if(key&&key.indexOf('plj_')===0&&!h.has('X-Partner-Key'))h.set('X-Partner-Key',key);
+        }
+        next=Object.assign({},init,{headers:h});
+      }
+    }catch(e){}
+    return of.call(window,i,next);
   };
+  window.fetch.__palcoIdentified=true;
 })();
 </script>
 <meta charset="utf-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>LouvorJA Palco</title>
+<title data-i18n="t_tv_title">LouvorJA Palco</title>
 <script id="palco-telemetry">
 // Telemetria de erros → Glitchtip self-hosted. DSN via querystring ?telemetry_dsn=
 // (a URL do receiver já carrega host/código do launcher — mesmo canal, zero config nova).
@@ -76,6 +102,9 @@
   #bg{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover;
     filter:none;transition:opacity .8s}
   #bg[src=""]{opacity:0}
+  /* Quadro de slide/imagem (PDF, PPT, imagens da liturgia): o conteúdo
+     aparece inteiro, como no operador, e aceita o zoom (frameView). */
+  #bg.frame-slide{object-fit:contain;background:#000;transform-origin:50% 50%}
   #bgPalco{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover}
   #veil{position:fixed;inset:0;background:transparent;pointer-events:none}
   #content{position:fixed;top:0;left:0;right:0;bottom:0;padding:3vh 4vw;
@@ -169,6 +198,116 @@
   /* Vídeo acima do idle (z=20) — idle nunca pode cobrir reprodução. */
   #video{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:contain;
     background:#000;z-index:20}
+  /* Transição dos slides (músicas e Bíblia): o app manda `transition` só
+     quando as transições estão habilitadas na Personalização. */
+  /* Transições dos slides (paridade screen-transitions.css dos monitores do
+     app): saída no fantasma do texto anterior e depois entrada do novo.
+     translate/scale/rotate avulsos somam ao transform que posiciona o #text;
+     3D usa --rx-base (transform atual). TV antiga sem esses avulsos recebe
+     esmaecer (projectionEnterKind). */
+  @keyframes rxInFade{from{opacity:0}}
+  @keyframes rxOutFade{to{opacity:0}}
+  .rx-enter-fade{animation:rxInFade var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-fade{animation:rxOutFade var(--rx-ms,250ms) ease both}
+  @keyframes rxInSlide{from{opacity:0;translate:0 4vh}}
+  @keyframes rxOutSlide{to{opacity:0;translate:0 -2vh}}
+  .rx-enter-slide{animation:rxInSlide var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-slide{animation:rxOutSlide var(--rx-ms,250ms) ease both}
+  @keyframes rxInZoom{from{opacity:0;scale:.94}}
+  @keyframes rxOutZoom{to{opacity:0;scale:1.03}}
+  .rx-enter-zoom{animation:rxInZoom var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-zoom{animation:rxOutZoom var(--rx-ms,250ms) ease both}
+  @keyframes rxInSlideDown{from{opacity:0;translate:0 -4vh}}
+  @keyframes rxOutSlideDown{to{opacity:0;translate:0 2vh}}
+  .rx-enter-slide-down{animation:rxInSlideDown var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-slide-down{animation:rxOutSlideDown var(--rx-ms,250ms) ease both}
+  @keyframes rxInSlideLeft{from{opacity:0;translate:8vw 0}}
+  @keyframes rxOutSlideLeft{to{opacity:0;translate:-8vw 0}}
+  .rx-enter-slide-left{animation:rxInSlideLeft var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-slide-left{animation:rxOutSlideLeft var(--rx-ms,250ms) ease both}
+  @keyframes rxInSlideRight{from{opacity:0;translate:-8vw 0}}
+  @keyframes rxOutSlideRight{to{opacity:0;translate:8vw 0}}
+  .rx-enter-slide-right{animation:rxInSlideRight var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-slide-right{animation:rxOutSlideRight var(--rx-ms,250ms) ease both}
+  @keyframes rxInZoomOut{from{opacity:0;scale:1.12}}
+  @keyframes rxOutZoomOut{to{opacity:0;scale:.9}}
+  .rx-enter-zoom-out{animation:rxInZoomOut var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-zoom-out{animation:rxOutZoomOut var(--rx-ms,250ms) ease both}
+  @keyframes rxInBlur{from{opacity:0;filter:blur(14px)}}
+  @keyframes rxOutBlur{to{opacity:0;filter:blur(14px)}}
+  .rx-enter-blur{animation:rxInBlur var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-blur{animation:rxOutBlur var(--rx-ms,250ms) ease both}
+  @keyframes rxInWipe{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+  @keyframes rxOutWipe{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(0 0 0 100%)}}
+  .rx-enter-wipe{animation:rxInWipe var(--rx-ms,250ms) cubic-bezier(.65,0,.35,1) var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-wipe{animation:rxOutWipe var(--rx-ms,250ms) cubic-bezier(.65,0,.35,1) both}
+  @keyframes rxInIris{from{clip-path:circle(0% at 50% 50%)}to{clip-path:circle(75% at 50% 50%)}}
+  @keyframes rxOutIris{from{clip-path:circle(75% at 50% 50%)}to{clip-path:circle(0% at 50% 50%)}}
+  .rx-enter-iris{animation:rxInIris var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-iris{animation:rxOutIris var(--rx-ms,250ms) ease both}
+  @keyframes rxInCurtain{from{clip-path:inset(0 50% 0 50%)}to{clip-path:inset(0 0 0 0)}}
+  @keyframes rxOutCurtain{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(0 50% 0 50%)}}
+  .rx-enter-curtain{animation:rxInCurtain var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-curtain{animation:rxOutCurtain var(--rx-ms,250ms) ease both}
+  @keyframes rxInFlip{from{opacity:0;transform:var(--rx-base) perspective(1200px) rotateX(-75deg)}to{transform:var(--rx-base) perspective(1200px) rotateX(0deg)}}
+  @keyframes rxOutFlip{from{transform:var(--rx-base) perspective(1200px) rotateX(0deg)}to{opacity:0;transform:var(--rx-base) perspective(1200px) rotateX(75deg)}}
+  .rx-enter-flip{animation:rxInFlip var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-flip{animation:rxOutFlip var(--rx-ms,250ms) ease both}
+  @keyframes rxInDrop{from{opacity:0;translate:0 -8vh}}
+  @keyframes rxOutDrop{to{opacity:0;translate:0 3vh}}
+  .rx-enter-drop{animation:rxInDrop var(--rx-ms,250ms) cubic-bezier(.34,1.56,.64,1) var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-drop{animation:rxOutDrop var(--rx-ms,250ms) ease both}
+  @keyframes rxInRotate{from{opacity:0;rotate:-8deg;scale:.9}}
+  @keyframes rxOutRotate{to{opacity:0;rotate:8deg;scale:.9}}
+  .rx-enter-rotate{animation:rxInRotate var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-rotate{animation:rxOutRotate var(--rx-ms,250ms) ease both}
+  @keyframes rxInSwing{from{opacity:0;transform:var(--rx-base) perspective(1200px) rotateY(-70deg)}to{transform:var(--rx-base) perspective(1200px) rotateY(0deg)}}
+  @keyframes rxOutSwing{from{transform:var(--rx-base) perspective(1200px) rotateY(0deg)}to{opacity:0;transform:var(--rx-base) perspective(1200px) rotateY(70deg)}}
+  .rx-enter-swing{animation:rxInSwing var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-swing{animation:rxOutSwing var(--rx-ms,250ms) ease both}
+  @keyframes rxInFlipH{from{opacity:0;transform:var(--rx-base) perspective(1200px) rotateY(-80deg)}to{transform:var(--rx-base) perspective(1200px) rotateY(0deg)}}
+  @keyframes rxOutFlipH{from{transform:var(--rx-base) perspective(1200px) rotateY(0deg)}to{opacity:0;transform:var(--rx-base) perspective(1200px) rotateY(80deg)}}
+  .rx-enter-flip-h{animation:rxInFlipH var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-flip-h{animation:rxOutFlipH var(--rx-ms,250ms) ease both}
+  @keyframes rxInPop{from{opacity:0;scale:.6}}
+  @keyframes rxOutPop{to{opacity:0;scale:.85}}
+  .rx-enter-pop{animation:rxInPop var(--rx-ms,250ms) cubic-bezier(.34,1.56,.64,1) var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-pop{animation:rxOutPop var(--rx-ms,250ms) ease both}
+  @keyframes rxInStretch{from{opacity:0;scale:.1 1}}
+  @keyframes rxOutStretch{to{opacity:0;scale:.1 1}}
+  .rx-enter-stretch{animation:rxInStretch var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-stretch{animation:rxOutStretch var(--rx-ms,250ms) ease both}
+  @keyframes rxInCinema{from{clip-path:inset(50% 0 50% 0)}to{clip-path:inset(0 0 0 0)}}
+  @keyframes rxOutCinema{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(50% 0 50% 0)}}
+  .rx-enter-cinema{animation:rxInCinema var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-cinema{animation:rxOutCinema var(--rx-ms,250ms) ease both}
+  @keyframes rxInWipeUp{from{clip-path:inset(100% 0 0 0)}to{clip-path:inset(0 0 0 0)}}
+  @keyframes rxOutWipeUp{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(0 0 100% 0)}}
+  .rx-enter-wipe-up{animation:rxInWipeUp var(--rx-ms,250ms) cubic-bezier(.65,0,.35,1) var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-wipe-up{animation:rxOutWipeUp var(--rx-ms,250ms) cubic-bezier(.65,0,.35,1) both}
+  @keyframes rxInWipeDown{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+  @keyframes rxOutWipeDown{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(100% 0 0 0)}}
+  .rx-enter-wipe-down{animation:rxInWipeDown var(--rx-ms,250ms) cubic-bezier(.65,0,.35,1) var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-wipe-down{animation:rxOutWipeDown var(--rx-ms,250ms) cubic-bezier(.65,0,.35,1) both}
+  @keyframes rxInDiagonal{from{clip-path:polygon(0 0,0 0,0 0)}to{clip-path:polygon(0 0,200% 0,0 200%)}}
+  @keyframes rxOutDiagonal{from{clip-path:polygon(0 0,200% 0,0 200%)}to{clip-path:polygon(0 0,0 0,0 0)}}
+  .rx-enter-diagonal{animation:rxInDiagonal var(--rx-ms,250ms) cubic-bezier(.65,0,.35,1) var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-diagonal{animation:rxOutDiagonal var(--rx-ms,250ms) cubic-bezier(.65,0,.35,1) both}
+  @keyframes rxInGlow{from{opacity:0;filter:brightness(3) blur(6px)}}
+  @keyframes rxOutGlow{to{opacity:0;filter:brightness(3) blur(6px)}}
+  .rx-enter-glow{animation:rxInGlow var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-glow{animation:rxOutGlow var(--rx-ms,250ms) ease both}
+  @keyframes rxInFloat{from{opacity:0;filter:blur(6px);translate:0 3vh}}
+  @keyframes rxOutFloat{to{opacity:0;filter:blur(6px);translate:0 -3vh}}
+  .rx-enter-float{animation:rxInFloat var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-float{animation:rxOutFloat var(--rx-ms,250ms) ease both}
+  @keyframes rxInZoomBlur{from{opacity:0;filter:blur(10px);scale:1.25}}
+  @keyframes rxOutZoomBlur{to{opacity:0;filter:blur(10px);scale:.8}}
+  .rx-enter-zoom-blur{animation:rxInZoomBlur var(--rx-ms,250ms) ease var(--rx-delay,0ms) backwards}
+  .rx-ghost-leave-zoom-blur{animation:rxOutZoomBlur var(--rx-ms,250ms) ease both}
+  .rx-enter-swing,.rx-ghost-leave-swing{transform-origin:left center}
+  .rx-ghost{position:fixed;margin:0;pointer-events:none;z-index:6}
+  @media (prefers-reduced-motion: reduce){[class*="rx-enter-"]{animation-name:rxInFade!important}[class*="rx-ghost-leave-"]{animation-name:rxOutFade!important}}
 </style>
 </head>
 <body>
@@ -225,18 +364,18 @@
     <div style="background:#00C1E6"></div>
     <div style="background:#FCCE02"></div>
   </div>
-  <p id="idleMsg">Aguardando transmissão…</p>
+  <p id="idleMsg" data-i18n="t_waiting_media">Waiting for transmission…</p>
   <!-- F3.3u: status de conexão visível no idle (sem ?debug) + dica da tecla vermelha -->
   <p id="idleConn" style="font-size:1.8vh;opacity:.45;margin:1.2vh 0 0 0"></p>
   </div>
 </div>
 
-<div id="status">conectando…</div>
+<div id="status" data-i18n="t_connecting_dots">connecting…</div>
 <!-- F3.3s: versão FORA do #idle — fixa no canto da tela, sempre visível -->
 <p id="idleVer" style="position:fixed;right:3vh;bottom:3.2vh;margin:0;z-index:9999;
   font-size:1.45vh;font-weight:500;letter-spacing:.11vh;opacity:.88;
   font-family:inherit;color:#fff;text-shadow:0 1px 4px #000;
-  padding:.45vh .8vh;background:rgba(0,0,0,.30);pointer-events:none">PIANO LouvorJA Palco · receiver v0.3.1</p>
+  padding:.45vh .8vh;background:rgba(0,0,0,.30);pointer-events:none">PIANO LouvorJA Palco</p>
 <audio id="audio" preload="auto"></audio>
 <script>
 //---------------------------------------------------------------------
@@ -2557,8 +2696,8 @@ const qs=new URLSearchParams(location.search);
 // Painel da tela compartilhada: não conecta; recebe do pai por postMessage.
 const SHARE_PANE=qs.get('obsPane')==='1';
 // F3.3q: versão no idle (canto inferior direito) — ?v= override ou padrão.
-window.__PALCO_APPV__=window.__PALCO_APPV__||'0.4.0';
-(function(){var el=$('idleVer');if(!el)return;var qv=qs.get('v')||window.__PALCO_APPV__||'';if(qv){el.textContent='PIANO LouvorJA Palco · receiver v'+qv;return}fetch('appinfo.json').then(function(r){return r.json()}).then(function(j){el.textContent='PIANO LouvorJA Palco · receiver v'+(j.version||'?')}).catch(function(){fetch('config.xml').then(function(r){return r.text()}).then(function(t){var m2=t.match(/version="([^"]+)"/);el.textContent='PIANO LouvorJA Palco · receiver v'+(m2?m2[1]:'?')}).catch(function(){el.textContent='PIANO LouvorJA Palco'})})})()
+window.__PALCO_APPV__=window.__PALCO_APPV__||'0.5.0';
+(function(){var el=$('idleVer');if(!el)return;var qv=qs.get('v')||window.__PALCO_APPV__||'';if(qv){el.textContent=PALCO_I18N.fmt('t_ver_line',{n:qv});return}fetch('appinfo.json').then(function(r){return r.json()}).then(function(j){el.textContent='PIANO LouvorJA Palco · receiver v'+(j.version||'?')}).catch(function(){fetch('config.xml').then(function(r){return r.text()}).then(function(t){var m2=t.match(/version="([^"]+)"/);el.textContent=PALCO_I18N.fmt('t_ver_line',{n:(m2?m2[1]:'?')})}).catch(function(){el.textContent='PIANO LouvorJA Palco'})})})()
 // webOS: ares-launch -p '{"host":"..."}' chega em PalmSystem.launchParams,
 // NÃO na query string. Merge dos dois (query string tem prioridade).
 try{
@@ -2594,9 +2733,9 @@ function setStatus(t,err){const s=$('status');s.textContent=t;
   const c=$('idleConn');if(c){
     if(t.indexOf('●')===0){
       var lb=localStorage.getItem('palcoSlotLabel');
-      c.textContent=(lb?lb+' · ':'')+'conectado a '+t.slice(1).trim()+' · vermelha = IP/porta · azul = atualizar';
+      c.textContent=(lb?lb+' · ':'')+PALCO_I18N.fmt('t_connected_to',{n:t.slice(1).trim()})+' · '+PALCO_I18N.t('t_red_ip_blue_update');
     }
-    else c.textContent=(localStorage.getItem('palcoSlotLabel')?localStorage.getItem('palcoSlotLabel')+' · ':'')+t+' · tecla vermelha = digitar IP';
+    else c.textContent=(localStorage.getItem('palcoSlotLabel')?localStorage.getItem('palcoSlotLabel')+' · ':'')+t+' · '+PALCO_I18N.t('t_red_key_ip');
   }
   s.className=err?'err':''}
 
@@ -2617,7 +2756,9 @@ function palcoId(){
 }
 function sendHello(){
   var el=$('idleVer'),m=el&&el.textContent.match(/v([\d.]+)/);
-  var msg={v:2,type:'hello',role:'tv',platform:palcoPlatform(),id:palcoId()};
+  // caps: aplica o zoom do quadro sozinho (o app manda só zoom + posição)
+  // heartbeat: responde ao `beat` do servidor (conexão viva dos dois lados)
+  var msg={v:2,type:'hello',role:'tv',platform:palcoPlatform(),id:palcoId(),caps:['frameView','heartbeat']};
   if(m)msg.version=m[1];
   try{var n=localStorage.getItem('palcoName');if(n)msg.name=n}catch(e){}
   sendEvent(msg);
@@ -2632,7 +2773,7 @@ function showIdentify(name,slot){
     document.body.appendChild(el)}
   el.innerHTML='';
   var t=document.createElement('div');t.style.cssText='font-size:11vh;font-weight:700;padding:0 4vw';
-  t.textContent=name||'Palco';el.appendChild(t);
+  t.textContent=name||PALCO_I18N.t('t_receiver_name');el.appendChild(t);
   if(slot){var s=document.createElement('div');s.style.cssText='font-size:4.5vh;opacity:.8;margin-top:2vh';
     s.textContent=slot;el.appendChild(s)}
   el.style.display='flex';
@@ -2646,42 +2787,111 @@ function sendEvent(m){try{if(ws&&ws.readyState===1)ws.send(JSON.stringify(m))}ca
 // > scan da sub-rede via GET :47080/status (resposta JSON identifica sender).
 // O APK novo usa 4980/4981 (faixa própria, sem conflito com o desktop);
 // APK e computadores ainda não atualizados seguem na 7080/7081: todas são procuradas.
+// Palco do desktop separado da Transmissão (OBS/navegador): porta própria
+// 47180/47181, sem o token da rede. A 47081 é a Transmissão (e o Palco dos
+// desktops ainda não atualizados): continua sendo procurada depois.
+const PALCO_WS_PORT='47181';
 const DEFAULT_WS_PORT='47081';
 const APK_WS_PORT='4981';
 const LEGACY_WS_PORT='7081';
 let host=qs.get('host')||localStorage.getItem('palcoHost')||location.hostname||'';
-let port=qs.get('port')||localStorage.getItem('palcoPort')||DEFAULT_WS_PORT;
+let port=qs.get('port')||localStorage.getItem('palcoPort')||PALCO_WS_PORT;
 // Porta do link é definitiva; a salva pode ser de outro transmissor.
-const portFixed=!!qs.get('port');
+var portFixed=!!qs.get('port');
+var manualHost=!!qs.get('host');
+var palcoScanGeneration=0;
+var localRetryTimer=null;
+var statusSequence=0;
+var statusPending={};
+var statusReported={};
+var statusBrowserChecked=false;
+function statusDiagnostic(kind){
+  if(statusReported[kind])return;
+  statusReported[kind]=true;
+  if(typeof palcoDiag==='function')palcoDiag(kind);
+}
+function nativeStatusMessage(op,id,ip,httpPort){
+  window.PalcoNetwork.postMessage(JSON.stringify({op:op,id:id,
+    session:window.__PALCO_NATIVE_SESSION,ip:ip,port:httpPort}));
+}
+window.__palcoStatusResult=function(session,id,result){
+  if(session!==window.__PALCO_NATIVE_SESSION || !statusPending[id])return;
+  statusDiagnostic('native_'+result.kind);
+  statusPending[id](result.kind==='ok'?{unlocked:result.unlocked}:null);
+};
+function cancelStatusProbes(){
+  Object.keys(statusPending).forEach(function(id){statusPending[id](null)});
+}
+function checkBrowserStatus(ip,httpPort){
+  if(statusBrowserChecked || !window.__PALCO_NETWORK_DIAGNOSTICS)return;
+  statusBrowserChecked=true;
+  // Differential diagnostic only; its result never gates discovery or WS.
+  var abort=typeof AbortController!=='undefined'?new AbortController():null;
+  var done=false;
+  var timer=setTimeout(function(){done=true;if(abort)abort.abort();statusDiagnostic('browser_status_timeout')},2000);
+  Promise.resolve().then(function(){return fetch('http://'+ip+':'+httpPort+'/status',abort?{signal:abort.signal}:undefined)})
+    .then(function(r){return r.json()})
+    .then(function(){if(!done)statusDiagnostic('browser_status_readable')})
+    .catch(function(){if(!done)statusDiagnostic('browser_status_blocked_or_network')})
+    .then(function(){done=true;clearTimeout(timer)});
+}
 function senderHttpPort(){return (parseInt(port,10)||Number(DEFAULT_WS_PORT))-1}
 
 function probeHttp(ip,httpPort){
   return new Promise(res=>{
-    fetch('http://'+ip+':'+httpPort+'/status')
-      .then(function(r){return r.json()})
-      .then(function(j){res(j&&('unlocked' in j)?j:null)})
-      .catch(function(){res(null)});
+    if(httpPort<1024 || httpPort>65535){res(null);return}
+    var id=String(++statusSequence),done=false;
+    var native=!!(window.PalcoNetwork && window.__PALCO_NATIVE_SESSION);
+    var abort=typeof AbortController!=='undefined'?new AbortController():null;
+    function finish(value){
+      if(done)return;done=true;clearTimeout(timer);delete statusPending[id];
+      if(native){try{nativeStatusMessage('cancel',id)}catch(e){}}
+      else if(abort)abort.abort();
+      if(native && value)checkBrowserStatus(ip,httpPort);
+      res(value);
+    }
+    var timer=setTimeout(function(){statusDiagnostic(native?'bridge_timeout':'http_timeout');finish(null)},1800);
+    statusPending[id]=finish;
+    if(native){
+      try{nativeStatusMessage('status',id,ip,httpPort)}catch(e){statusDiagnostic('bridge_error');finish(null)}
+      return;
+    }
+    Promise.resolve().then(function(){return fetch('http://'+ip+':'+httpPort+'/status',abort?{signal:abort.signal}:undefined)})
+      .then(function(r){if(r.ok===false){statusDiagnostic('http_status');return null}return r.json()})
+      .then(function(j){finish(j&&typeof j==='object'&&('unlocked' in j)?{unlocked:j.unlocked===true}:null)})
+      .catch(function(){if(!done)statusDiagnostic('http_network_or_policy');finish(null)});
   });
 }
-function probeSender(ip){
+function probeSender(ip,commit,selectedPort){
+  var generation=palcoScanGeneration;
   // Sem porta no link: a atual, a do desktop, a do APK e a antiga, em paralelo; vence a primeira da lista que responder.
-  var tries=[port];
-  if(!portFixed)[DEFAULT_WS_PORT,APK_WS_PORT,LEGACY_WS_PORT].forEach(function(p){if(tries.indexOf(p)<0)tries.push(p)});
+  // A porta salva vence (ex.: TV movida para outra conexão do Palco), menos a
+  // 47081 antiga: aí o Palco do desktop atualizado vem antes da Transmissão.
+  var base=selectedPort||port;
+  var tries=portFixed||String(base)!==DEFAULT_WS_PORT?[base]:[PALCO_WS_PORT,base];
+  if(!portFixed)[PALCO_WS_PORT,DEFAULT_WS_PORT,APK_WS_PORT,LEGACY_WS_PORT].forEach(function(p){if(tries.indexOf(p)<0)tries.push(p)});
   return Promise.all(tries.map(function(p){return probePair(ip,parseInt(p,10)||Number(DEFAULT_WS_PORT))})).then(function(found){
-    for(var i=0;i<found.length;i++)if(found[i])return normalizePort(ip,null,found[i]);
+    for(var i=0;i<found.length;i++)if(found[i]){
+      if(commit===false)return {ip:ip,port:String(found[i])};
+      if(generation!==palcoScanGeneration || cloudMode)return null;
+      return normalizePort(ip,null,found[i]);
+    }
     return null;
   });
 }
 function probePair(ip,p){
+  var generation=palcoScanGeneration;
   // Porta digitada pode ser WS (47081) OU HTTP do slot (a UI mostra a HTTP,
   // ex.: slot 1 = 47082/47083). Tenta a dupla HTTP/WS em ambos os sentidos:
   // p como HTTP, p-1 (p=WS) e p+1 (p=HTTP→WS=p+1). Devolve a porta WS.
   return probeHttp(ip,p).then(function(j){
+    if(generation!==palcoScanGeneration || cloudMode)return null;
     if(j)return p+1;                            // p era HTTP → WS=p+1
     return probeHttp(ip,p-1).then(function(j2){
+      if(generation!==palcoScanGeneration || cloudMode)return null;
       if(j2)return p;                           // p era WS (HTTP=p-1)
       return probeHttp(ip,p+1).then(function(j3){
-        return j3?p+1:null;                     // p era HTTP, WS=p+1
+        return j3?p+2:null;                     // HTTP encontrado em p+1 → WS=p+2
       });
     });
   });
@@ -2692,6 +2902,8 @@ function normalizePort(ip,j,wsPort){
 }
 
 async function scanSubnet(){
+  var generation=palcoScanGeneration,scanPort=port;
+  statusReported={};
   dlog('scan iniciado');
   // presume /24 da própria TV (rede típica de igreja)
   // file:// (IPK/simulador local): hostname vazio — tenta últimos hosts
@@ -2702,37 +2914,42 @@ async function scanSubnet(){
     me=saved||'192.168.1.100';
   }
   const prefix=me.split('.').slice(0,3).join('.');
-  const base=host&&/^(?:\d{1,3}\.){3}\d{1,3}$/.test(host)
+  const base=!window.__PALCO_LOCAL_IP&&host&&/^(?:\d{1,3}\.){3}\d{1,3}$/.test(host)
   ?host.split('.').slice(0,3).join('.')
   :prefix;
   const ips=[];
   for(let i=1;i<255;i++)ips.push(base+'.'+i);
   if(host)ips.unshift(host); // último conhecido primeiro
   const found=[];
-  const CONC=42; // F3.3v: 20→42 e timeout 900→450ms — scan ~3x mais rápido
+  const CONC=42;
   for(let i=0;i<ips.length;i+=CONC){
-    const batch=await Promise.all(ips.slice(i,i+CONC).map(probeSender));
-    dlog('batch',i,'-',i+CONC,':',batch.filter(Boolean).join(',')||'-');
-    for(const r of batch)if(r&&found.indexOf(r)<0)found.push(r);
-    if(found.length)return found[0];
+    if(generation!==palcoScanGeneration || cloudMode)return null;
+    const batch=await Promise.all(ips.slice(i,i+CONC).map(function(ip){return probeSender(ip,false,scanPort)}));
+    if(generation!==palcoScanGeneration || cloudMode)return null;
+    for(const r of batch)if(r)found.push(r);
+    if(found.length){port=found[0].port;statusDiagnostic('port_found');return found[0].ip}
   }
   return null;
 }
-
-var palcoScanGeneration=0;
 
 window.__palcoLocalIpReady=function(){
   var ip=window.__PALCO_LOCAL_IP||'';
   var ipv4=/^(?:\d{1,3}\.){3}\d{1,3}$/;
 
-  if(cloudMode || qs.get('host') || !ipv4.test(ip))return;
+  if(cloudMode)return;
+  if(manualHost){connect();return}
+  if(!ipv4.test(ip)){
+    if(host)connect();
+    else setStatus(PALCO_I18N.t('t_ip_unavailable'),true);
+    return;
+  }
   if(ws && ws.readyState===1)return;
 
   var prefix=ip.split('.').slice(0,3).join('.');
 
   // Preserva uma conexão já direcionada à mesma rede.
   if(host && ipv4.test(host) &&
-     host.split('.').slice(0,3).join('.')===prefix)return;
+     host.split('.').slice(0,3).join('.')===prefix){connect();return}
 
   // Reinicia a descoberta usando a rede informada pelo Flutter.
   host='';
@@ -2740,14 +2957,18 @@ window.__palcoLocalIpReady=function(){
 };
 
 function connect(){
+  if(cloudMode)return;
+  if(window.PalcoNetwork && !window.__PALCO_NETWORK_READY)return;
+  clearTimeout(localRetryTimer);
+  var currentScan=++palcoScanGeneration;
+  cancelStatusProbes();
   dlog('connect() host="'+host+'"');
   if(!host){
-    var currentScan=++palcoScanGeneration;
-    setStatus('procurando LouvorJA na rede…');
+    setStatus(PALCO_I18N.t('t_searching_network'));
     scanSubnet().then(found=>{
       if(currentScan!==palcoScanGeneration || cloudMode)return;
       if(found){host=found;localStorage.setItem('palcoHost',host);doConnect()}
-      else{setStatus('nenhum sender encontrado — tentando de novo…',true);retry()}
+      else{setStatus(PALCO_I18N.t('t_no_sender'),true);retry()}
     });
     return;
   }
@@ -2756,7 +2977,9 @@ function connect(){
     // com backoff (que levavam ~15s antes de re-escanear).
     // Exceção: fetch bloqueado (app empacotado webOS) não significa host morto —
     // tenta WS direto 1x antes de descartar; WS não sofre CORS.
+    if(manualHost){doConnect();return}
     probeSender(host).then(ok=>{
+      if(currentScan!==palcoScanGeneration || cloudMode)return;
       if(ok)doConnect();
       else{
         dlog('probe falhou — tentando WS direto antes de descartar host');
@@ -2766,13 +2989,8 @@ function connect(){
   }
   // Tenta WS direto no host salvo; se falhar 1x sem nunca abrir, host é stale.
   function directTry(){
-    var opened=false;
-    var attemptedHost=host;
-    var t=setTimeout(function(){if(!opened && host===attemptedHost && !cloudMode){dlog('WS direto falhou — host stale');localStorage.removeItem('palcoHost');host='';connect()}},3000);
-    try{var w=new WebSocket('ws://'+host+':'+port+'/palco');
-      w.onopen=function(){opened=true;clearTimeout(t);try{w.close()}catch(e){};doConnect()};
-      w.onerror=function(){};
-    }catch(e){clearTimeout(t);localStorage.removeItem('palcoHost');host='';connect()}
+    // One socket only: same bounded handshake/retry path as a discovered host.
+    doConnect();
   }
 // F3.3u: re-scan contínuo enquanto desconectado — nunca desiste.
 // (antes: 3 falhas → esquecia host → 1 scan → parava com "não encontrado")
@@ -2788,26 +3006,73 @@ function stopMediaOnServerLoss(){
 }
 
 function doConnect(){
+  if(cloudMode)return;
+  var generation=++palcoScanGeneration;
+  cancelStatusProbes();clearTimeout(localRetryTimer);
+  if(ws){ws.onclose=null;ws.onerror=null;ws.onopen=null;try{ws.close()}catch(e){}}
   dlog('doConnect '+host+':'+port);
-  setStatus('conectando '+host+':'+port+'…');
-  try{ws=new WebSocket('ws://'+host+':'+port+'/palco')}catch(e){retry();return}
-  ws.onopen=()=>{tries=0;dlog('WS OPEN '+host);setStatus('● '+host);
+  setStatus(PALCO_I18N.fmt('t_connecting_host',{n:host+':'+port}));
+  try{ws=new WebSocket('ws://'+host+':'+port+'/palco')}catch(e){statusDiagnostic('ws_constructor');retry();return}
+  var socket=ws;
+  function current(){return !cloudMode && generation===palcoScanGeneration && socket===ws}
+  var handshake=setTimeout(function(){
+    if(!current() || socket.readyState===1)return;
+    statusDiagnostic('ws_handshake_timeout');socket.onclose=null;try{socket.close()}catch(e){}
+    if(tries>=3&&!manualHost){localStorage.removeItem('palcoHost');host='';tries=0}
+    retry();
+  },4000);
+  ws.onopen=()=>{clearTimeout(handshake);if(!current()){try{socket.close()}catch(e){};return}
+    tries=0;lastServerMessage=Date.now();serverBeats=false;statusDiagnostic('ws_open');dlog('WS OPEN '+host);setStatus('● '+host);
     sendHello();
     if(window.__hideSplash)window.__hideSplash(); // F3.3j: splash sai no connect
     localStorage.setItem('palcoHost',host);
     localStorage.setItem('palcoPort',port)};
-  ws.onmessage=ev=>{try{handle(JSON.parse(ev.data))}catch(e){}};
-  ws.onclose=()=>{dlog('WS CLOSE');stopMediaOnServerLoss();showIdle();
+  ws.onmessage=ev=>{if(!current())return;lastServerMessage=Date.now();try{var m=JSON.parse(ev.data);
+    // sinal de vida do servidor: responde e não vai para a tela
+    if(m&&m.type==='beat'){serverBeats=true;try{socket.send('{"v":2,"type":"beat"}')}catch(e){}return}
+    handle(m)}catch(e){statusDiagnostic('ws_message_error')}};
+  ws.onclose=ev=>{clearTimeout(handshake);if(!current())return;
+    if(typeof palcoDiag==='function')palcoDiag('ws_close',ev.code);
+    dlog('WS CLOSE');stopMediaOnServerLoss();showIdle();
     // host falhou 3x → esquece e re-escaneia (IP mudou)
-    if(tries>=3){localStorage.removeItem('palcoHost');host='';tries=0}
+    if(tries>=3&&!manualHost){localStorage.removeItem('palcoHost');host='';tries=0}
     retry()};
-  ws.onerror=()=>{};
+  ws.onerror=()=>{if(current())statusDiagnostic('ws_handshake_or_transport')};
 }
 function retry(){
+  if(cloudMode)return;
+  clearTimeout(localRetryTimer);
+  var generation=palcoScanGeneration;
   const wait=Math.min(1000*Math.pow(2,tries++),10000);
-  setStatus('reconectando em '+Math.round(wait/1000)+'s',true);
-  setTimeout(connect,wait);
+  setStatus(PALCO_I18N.fmt('t_reconnecting_in',{n:Math.round(wait/1000)}),true);
+  localRetryTimer=setTimeout(function(){localRetryTimer=null;if(generation===palcoScanGeneration&&!cloudMode)connect()},wait);
 }
+
+// ===== Conexão viva dos dois lados =====
+// O computador manda `beat` a cada 10 s e cobra a resposta (e procura a TV
+// que caiu pela rede). Daqui, se ficar 30 s sem ouvir nada dele, a conexão
+// está pendurada (Wi-Fi caiu, PC dormiu): fecha e reconecta na hora, sem
+// esperar o WebView perceber. Computador antigo não manda `beat`: o vigia
+// fica desligado. Só vale para a conexão local (o relay cloud tem a sua).
+var lastServerMessage=0,serverBeats=false;
+var SERVER_SILENCE_MS=30000;
+function reconnectNow(reason){
+  dlog('reconectando: '+reason);
+  var dead=ws;ws=null;
+  if(dead){dead.onclose=null;dead.onmessage=null;dead.onerror=null;try{dead.close()}catch(e){}}
+  stopMediaOnServerLoss();showIdle();
+  clearTimeout(localRetryTimer);localRetryTimer=null;
+  connect();
+}
+function checkServerAlive(now){
+  if(!cloudMode&&ws&&ws.readyState===1&&serverBeats&&now-lastServerMessage>SERVER_SILENCE_MS){reconnectNow('computador sem resposta');return true}
+  return false;
+}
+setInterval(function(){checkServerAlive(Date.now())},5000);
+// Rede voltou ou o app voltou à frente: tenta já, sem esperar a próxima vez.
+function reconnectSoon(){if(localRetryTimer&&!cloudMode&&!(ws&&ws.readyState===1)){clearTimeout(localRetryTimer);localRetryTimer=null;connect()}}
+window.addEventListener('online',reconnectSoon);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)reconnectSoon()});
 
 // ===== WT-5d: modo cloud — TV conecta no relay WS da API =====
 // Mesmo protocolo do receiver browser (browser/index.html): código de 6 chars
@@ -2825,31 +3090,40 @@ var cloudMode=false;
 var cloudTimer=null;
 
 function cloudConnect(code){
+  ++palcoScanGeneration;cancelStatusProbes();clearTimeout(localRetryTimer);
+  var generation=palcoScanGeneration;
+  clearTimeout(cloudTimer);
   cloudMode=true;cloudCode=code;
   dlog('cloudConnect',code,cloudApi);
   var base=cloudApi.replace(/^ws/,'http');
-  setStatus('nuvem: buscando sessão '+code+'…');
+  setStatus(PALCO_I18N.fmt('t_cloud_searching',{n:code}));
   fetch(base+'/sessions/'+code+'/token')
-    .then(function(r){if(!r.ok)throw Error('sessão não encontrada');return r.json()})
-    .then(function(j){cloudOpen(code,j.token)})
-    .catch(function(e){setStatus('nuvem: '+e.message,true);cloudRetry()});
+    .then(function(r){if(!r.ok)throw Error(PALCO_I18N.t('t_session_not_found2'));return r.json()})
+    .then(function(j){if(cloudMode&&generation===palcoScanGeneration)cloudOpen(code,j.token)})
+    .catch(function(e){if(!cloudMode||generation!==palcoScanGeneration)return;setStatus('☁ '+e.message,true);cloudRetry()});
 }
 function cloudOpen(code,token){
-  setStatus('nuvem: conectando…');
+  if(!cloudMode)return;
+  var generation=palcoScanGeneration;
+  if(ws){ws.onclose=null;ws.onopen=null;try{ws.close()}catch(e){}}
+  setStatus(PALCO_I18N.t('t_cloud_connecting'));
   var cid='';
   try{cid=localStorage.getItem('palcoCloudCid')||''}catch(e){}
   if(!cid){cid='tv-'+Math.random().toString(36).slice(2,10);try{localStorage.setItem('palcoCloudCid',cid)}catch(e){}}
   try{ws=new WebSocket(cloudApi+'/relay/'+code+'?token='+encodeURIComponent(token)+'&role=receiver&cid='+encodeURIComponent(cid))}
   catch(e){cloudRetry();return}
-  ws.onopen=function(){tries=0;dlog('CLOUD WS OPEN',code);
-    setStatus('● nuvem '+code);
+  var socket=ws;
+  function current(){return cloudMode&&generation===palcoScanGeneration&&socket===ws}
+  ws.onopen=function(){if(!current()){try{socket.close()}catch(e){};return}tries=0;dlog('CLOUD WS OPEN',code);
+    setStatus('☁ '+code);
     if(window.__hideSplash)window.__hideSplash();
     try{localStorage.setItem('palcoCloudCode',code)}catch(e){}};
-  ws.onmessage=function(ev){try{handle(JSON.parse(ev.data))}catch(e){}};
+  ws.onmessage=function(ev){if(!current())return;try{handle(JSON.parse(ev.data))}catch(e){}};
   ws.onclose=function(ev){
+    if(!current())return;
     dlog('CLOUD WS CLOSE',ev&&ev.code);
     stopMediaOnServerLoss();showIdle();
-    if(ev&&ev.code===4404){setStatus('sessão inválida — tecla vermelha p/ novo código',true);cloudMode=false;return}
+    if(ev&&ev.code===4404){setStatus(PALCO_I18N.t('t_session_invalid_red'),true);cloudMode=false;return}
     // 4409 = join recusado (ex.: sessão recém-recriada) — reseta backoff pra
     // tentar de novo rápido em vez de esperar 10s crescendo.
     if(ev&&(ev.code===4409||ev.code===4400)){tries=0}
@@ -2858,7 +3132,7 @@ function cloudOpen(code,token){
 }
 function cloudRetry(){
   var wait=Math.min(1000*Math.pow(2,tries++),10000);
-  setStatus('nuvem: reconectando em '+Math.round(wait/1000)+'s',true);
+  setStatus(PALCO_I18N.fmt('t_cloud_reconnecting',{n:Math.round(wait/1000)}),true);
   cloudTimer=setTimeout(function(){if(cloudMode&&cloudCode)cloudConnect(cloudCode)},wait);
 }
 
@@ -2867,19 +3141,23 @@ function cloudRetry(){
 // receiver e MOSTRA o código + QR no idle. O operador abre o web, informa o
 // código (ou escaneia) e projeta. Padrão YouTube/Netflix.
 function cloudCreate(){
+  ++palcoScanGeneration;cancelStatusProbes();clearTimeout(localRetryTimer);
+  var generation=palcoScanGeneration;
+  clearTimeout(cloudTimer);
   cloudMode=true;cloudCode='';
   var base=cloudApi.replace(/^ws/,'http');
-  setStatus('nuvem: criando sessão…');
+  setStatus(PALCO_I18N.t('t_cloud_creating'));
   fetch(base+'/sessions',{method:'POST'})
-    .then(function(r){if(!r.ok)throw Error('falha ao criar sessão');return r.json()})
+    .then(function(r){if(!r.ok)throw Error(PALCO_I18N.t('t_session_create_err'));return r.json()})
     .then(function(j){
+      if(!cloudMode||generation!==palcoScanGeneration)return;
       cloudCode=String(j.code||'').toUpperCase();
-      if(!cloudCode)throw Error('sessão inválida');
+      if(!cloudCode)throw Error(PALCO_I18N.t('t_session_invalid2'));
       try{localStorage.setItem('palcoCloudCode',cloudCode)}catch(e){}
       showCloudPair(cloudCode);
       cloudOpen(cloudCode,j.token);
     })
-    .catch(function(e){setStatus('nuvem: '+e.message,true);cloudMode=false;retry()});
+    .catch(function(e){if(!cloudMode||generation!==palcoScanGeneration)return;setStatus('☁ '+e.message,true);cloudMode=false;retry()});
 }
 
 // ===== QRCode minimal (qrcodegen, MIT, Nayuki) — só o necessário p/ v1 =====
@@ -2906,10 +3184,10 @@ function showCloudPair(code){
     for(var y=0;y<count;y++)for(var x=0;x<count;x++)if(qr.isDark(y,x))ctx.fillRect(x*px,y*px,px,px);
     t.style.width='22vh';t.style.height='22vh';t.style.borderRadius='1vh';t.style.background='#fff';
     wrap.appendChild(t);
-  }catch(e){dlog('QR falhou (código em texto segue):',e&&e.message)}
+  }catch(e){dlog('QR_FAILED_FALLBACK_TEXT',e&&e.message)}
   var info=document.createElement('div');
   info.style.cssText='text-align:left';
-  info.innerHTML='<div style="font-size:2.4vh;opacity:.75">Acesse e informe o código</div>'+
+  info.innerHTML='<div style="font-size:2.4vh;opacity:.75">'+PALCO_I18N.t('t_visit_enter_code')+'</div>'+
     '<div style="font-size:9vh;font-weight:800;letter-spacing:1.2vh;line-height:1.15;color:#FCCE02">'+code+'</div>'+
     '<div style="font-size:2vh;opacity:.6">app.pianolouvorja.com.br</div>';
   wrap.appendChild(info);
@@ -2961,7 +3239,7 @@ function ytPost(cmd){
 function stopYoutube(){ytId=null;if(ytFrame){ytFrame.remove();ytFrame=null}}
 function handleYoutube(m){
   if(m.action==='captions'){ytPost({action:'captions',captionsHidden:m.captionsHidden===true});return}
-  if(m.action==='stop'){stopYoutube();showIdle('Aguardando transmissão…');return}
+  if(m.action==='stop'){stopYoutube();showIdle(PALCO_I18N.t('t_waiting_media'));return}
   if(m.youtubeId&&/^[\w-]{11}$/.test(m.youtubeId)){
     ytPaused=m.paused===true;
     if(m.youtubeId===ytId&&ytFrame){ytPost({positionMs:m.positionMs,paused:ytPaused});return}
@@ -2983,8 +3261,8 @@ function handleYoutube(m){
 window.addEventListener('message',function(e){
   const d=e.data;
   if(!d||d.louvorjaYoutube!==true||!ytId)return;
-  if(d.error!=null){stopYoutube();showIdle('YouTube: não foi possível reproduzir este vídeo.')}
-  else if(d.state===0){stopYoutube();showIdle('Aguardando transmissão…');sendEvent({v:2,type:'ended',media:'video'})}
+  if(d.error!=null){stopYoutube();showIdle(PALCO_I18N.t('t_yt_err'))}
+  else if(d.state===0){stopYoutube();showIdle(PALCO_I18N.t('t_waiting_media'));sendEvent({v:2,type:'ended',media:'video'})}
 });
 // F3.3e: fallback de cover — sem capa ou capa quebrada = logo da org.
 // Cover relativo (images/... ou covers/...) resolve contra / do sender.
@@ -3014,7 +3292,7 @@ function hideNp(){
 }
 
 const a0=$('audio');
-a0.onended=()=>showIdle('Aguardando transmissão…');
+a0.onended=()=>showIdle(PALCO_I18N.t('t_waiting_media'));
 let pendingPlay=false;
 // F3.3h: autoplay-mudo — o browser bloqueia play() COM SOM sem gesto, mas
 // permite MUDO. Estratégia Chromecast-like: play com som falha → retry
@@ -3032,7 +3310,7 @@ function showMuteBadge(){
   b.style.cssText='position:fixed;top:3vh;right:3vh;z-index:98;cursor:pointer;'+
     'background:rgba(0,0,0,.75);border-radius:3vh;padding:1.5vh 2.5vh;'+
     'font-size:2.4vh;color:#fff;display:flex;align-items:center;gap:1.2vh';
-  b.innerHTML='<span style="font-size:3vh">🔇</span> Toque para ativar o som';
+  b.innerHTML='<span style="font-size:3vh">🔇</span> '+PALCO_I18N.t('t_sound_tap');
   b.addEventListener('click',unmuteNow);
   document.body.appendChild(b);
 }
@@ -3148,7 +3426,7 @@ function openIpEntry(){
   ipEntry.style.cssText='position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.85);'+
     'display:flex;align-items:center;justify-content:center';
   ipEntry.innerHTML='<div style="text-align:center">'+
-    '<p style="font-size:2.6vh;opacity:.7;margin:0 0 2vh 0">CÓDIGO (6 letras/números) · IP · IP:PORTA — ou SÓ A PORTA (ex.: 47081) para achar o LouvorJA na rede</p>'+
+    '<p style="font-size:2.6vh;opacity:.7;margin:0 0 2vh 0">'+PALCO_I18N.t('t_code_overlay_title')+'</p>'+
     '<p id="ipVal" style="font-size:6vh;font-weight:700;letter-spacing:.5vh;margin:0;'+
     'min-height:7vh;border-bottom:.3vh solid #FCCE02;padding:0 4vh"></p>'+
     '<p style="font-size:1.8vh;opacity:.5;margin:2vh 0 0 0">OK conectar · amarela digita : · vermelha cancelar · backspace apaga</p></div>';
@@ -3181,15 +3459,17 @@ function submitIp(){
   // Só dígitos (2-5) = PORTA: o sender é achado por scan com essa porta
   // (usuário não decora IP; nova TV na rede de igreja conecta fácil).
   if(/^\d{2,5}$/.test(v)&&!/\./.test(v)){
+    cloudMode=false;clearTimeout(cloudTimer);manualHost=false;portFixed=true;
     port=v;localStorage.setItem('palcoPort',port);tries=0;closeIpEntry();
     try{if(ws)ws.close()}catch(e){}
     host='';localStorage.removeItem('palcoHost');
-    setStatus('procurando LouvorJA na porta '+port+'…');
-    scanSubnet();
+    setStatus(PALCO_I18N.fmt('t_searching_port',{n:port}));
+    connect();
     return;
   }
   // Multi-palco: aceita IP ou IP:PORTA (ex: 192.168.1.50:7083).
   var parts=v.split(':');
+  cloudMode=false;clearTimeout(cloudTimer);manualHost=true;
   host=parts[0];localStorage.setItem('palcoHost',host);
   if(parts[1]&&parseInt(parts[1],10)>0){
     port=String(parseInt(parts[1],10));localStorage.setItem('palcoPort',port);
@@ -3231,7 +3511,7 @@ window.addEventListener('keydown',function(e){
     {const a=$('audio');a.pause();a.removeAttribute('src');a.load();}
     {const v=$('video');v.pause();v.removeAttribute('src');v.style.display='none';v.load();}
     hideNp();
-    showIdle('Aguardando transmissão…');
+    showIdle(PALCO_I18N.t('t_waiting_media'));
     return;
   }
   // vermelha ou "0" no idle abre entrada de IP (controle sem colorida)
@@ -3301,8 +3581,96 @@ if(SHARE_PANE)window.addEventListener('message',function(e){
   if(e.source===window.parent&&e.data&&typeof e.data==='object')handle(e.data);
 });
 
+// rx-transitions:start
+// Transição dos slides (músicas e Bíblia): só quando o app manda `transition`
+// (transições habilitadas). `transitionName` traz o nome real do catálogo do
+// app; desconhecido, vale o aproximado. Slide novo anima mesmo com a mesma
+// letra; o reenvio do mesmo slide não. Out-in: o novo espera o antigo sair.
+const RX_TRANSITIONS=['fade','slide','zoom','slide-down','slide-left','slide-right','zoom-out','blur','wipe','iris','curtain','flip','drop','rotate','swing','flip-h','pop','stretch','cinema','wipe-up','wipe-down','diagonal','glow','float','zoom-blur'];
+const RX_MOTION=['slide','zoom','slide-down','slide-left','slide-right','zoom-out','drop','rotate','pop','stretch','float','zoom-blur'];
+const RX_ENTER_CLASSES=RX_TRANSITIONS.map(function(n){return 'rx-enter-'+n});
+const RX_GHOST_CLASSES=RX_TRANSITIONS.map(function(n){return 'rx-ghost-leave-'+n});
+let lastProjectionKey='';
+function projectionEnterKind(m){
+  const scoped=m.scope==='bible'||m.scope==='hymns'||m.scope==='media'||m.scope==='hymn';
+  if(!scoped)return null;
+  let kind=RX_TRANSITIONS.indexOf(m.transitionName)>=0?m.transitionName
+    :(m.transition==='fade'||m.transition==='slide'||m.transition==='zoom'?m.transition:null);
+  if(!kind||RX_MOTION.indexOf(kind)<0)return kind;
+  // TV antiga (ex.: webOS 6) sem translate/scale avulsos: esmaecer.
+  try{const css=window.CSS;if(!(css&&css.supports&&css.supports('translate','0 1px')))return 'fade'}catch(e){return 'fade'}
+  return kind;
+}
+function projectionEnterKey(m){
+  const slide=Number.isFinite(Number(m.slideIndex))?Number(m.slideIndex):'';
+  return String(m.scope||'')+'|'+String(m.text||'')+'|'+String(m.footerRef||'')+'|'+(m.isCover===true?'1':'0')+'|'+slide;
+}
+function rxDuration(m){
+  const ms=Number(m.transitionMs);
+  return Number.isFinite(ms)&&ms>=0&&ms<=2000?ms:250;
+}
+/** Fantasma do texto atual (antes de trocar) para a saída. */
+function projectionGhostOf(m,el){
+  if(!projectionEnterKind(m)||projectionEnterKey(m)===lastProjectionKey)return null;
+  if(!el||!el.innerHTML||el.style.display==='none')return null;
+  const r=el.getBoundingClientRect();
+  if(!(r.width>2&&r.height>2))return null;
+  const g=el.cloneNode(true);
+  g.removeAttribute('id');
+  g.classList.remove.apply(g.classList,RX_ENTER_CLASSES);
+  g.classList.add('rx-ghost');
+  g.style.left=r.left+'px';g.style.top=r.top+'px';g.style.width=r.width+'px';g.style.transform='none';
+  (el.parentNode||document.body).appendChild(g);
+  return g;
+}
+function dismissProjectionGhost(ghost,kind,dur){
+  if(!ghost)return;
+  const done=function(){try{ghost.remove()}catch(e){}};
+  if(!kind){done();return}
+  ghost.style.setProperty('--rx-ms',dur+'ms');
+  ghost.style.setProperty('--rx-base','translate(0,0)');
+  void ghost.offsetWidth;
+  ghost.classList.add('rx-ghost-leave-'+kind);
+  setTimeout(done,dur+80);
+}
+function projectionEnter(m,els,ghost){
+  const kind=projectionEnterKind(m);
+  const key=projectionEnterKey(m);
+  const changed=key!==lastProjectionKey;
+  const hadPrevious=lastProjectionKey!=='';
+  lastProjectionKey=key;
+  const dur=rxDuration(m);
+  dismissProjectionGhost(ghost,kind&&changed?kind:null,dur);
+  els.forEach(function(el){
+    if(!el)return;
+    if(!kind){el.classList.remove.apply(el.classList,RX_ENTER_CLASSES);return}
+    if(!changed)return;
+    el.classList.remove.apply(el.classList,RX_ENTER_CLASSES);
+    const base=getComputedStyle(el).transform;
+    el.style.setProperty('--rx-ms',dur+'ms');
+    el.style.setProperty('--rx-delay',(hadPrevious?dur:0)+'ms');
+    el.style.setProperty('--rx-base',base&&base!=='none'?base:'translate(0,0)');
+    void el.offsetWidth;
+    el.classList.add('rx-enter-'+kind);
+  });
+}
+// rx-transitions:end
+// Zoom do quadro (imagem/PDF/PPT) igual ao do operador: escala + deslocamento
+// em fração da tela, animado para não andar em "degraus".
+function applyFrameView(view,anim){
+  var bgEl=$('bg');if(!bgEl)return;
+  var z=view&&Number(view.zoom)>1?Math.min(5,Number(view.zoom)):1;
+  var x=view&&isFinite(Number(view.x))?Number(view.x):0;
+  var y=view&&isFinite(Number(view.y))?Number(view.y):0;
+  var ms=Math.max(0,Math.min(400,Number(anim)||0));
+  bgEl.style.transition=ms?'transform '+ms+'ms cubic-bezier(0.2,0.7,0.3,1),opacity .8s':'';
+  bgEl.style.transform=z===1&&!x&&!y?'':'translate('+(x*100)+'%,'+(y*100)+'%) scale('+z+')';
+}
 function handle(m){
   if(m.v!==1&&m.v!==2)return;
+  if(m.type==='frameView'){if($('bg').className.indexOf('frame-slide')>=0)applyFrameView(m.view,m.view&&m.view.anim);return;}
+  // outro conteúdo no fundo: o zoom do quadro anterior não vale para ele
+  if(m.type==='video'||m.type==='audio'||m.type==='idle'||m.type==='bgPalco'||m.type==='stop-all'||m.type==='timer')applyFrameView(null,0);
   // Tela de espera sem logo (opção do transmissor, reenviada ao conectar).
   if(m.type==='idleStyle'){document.documentElement.classList.toggle('idle-no-logo',m.hideLogo===true);return;}
   // Ações por palco (módulo Palco do celular): só este receiver recebe.
@@ -3359,7 +3727,7 @@ function handle(m){
     const _v=$('video'),_a=$('audio');
     const mediaActive=(_v&&!_v.paused&&_v.style.display!=='none')||(_a&&!_a.paused)||window.__videoAudioActive;
     if(mediaActive&&fresh&&!window.__mediaLock){
-      try{dlog('BLOCKED',m.type,'— mídia externa ativa')}catch(e){}
+      try{dlog('BLOCKED',m.type,'MEDIA_EXTERNAL_ACTIVE')}catch(e){}
       return;
     }
   }
@@ -3372,7 +3740,7 @@ function handle(m){
     try{const _v2=$('video'),_a2=$('audio');_v2.pause();_v2.removeAttribute('src');_v2.load();_a2.pause()}catch(e){}
   }
   if(m.type==='mirror-signal'){
-    cleanMirror.handle(m).catch(function(){showIdle('Não foi possível conectar a transmissão do player.')});return;
+    cleanMirror.handle(m).catch(function(){showIdle(PALCO_I18N.t('t_media_connect_err'))});return;
   }
   if(m.type==='video'&&m.cleanMirror&&typeof m.mirrorSession==='string'){
     if(ytId)stopYoutube();hideIdle();hideNp();
@@ -3382,7 +3750,7 @@ function handle(m){
   if(cleanMirror.active()){
     if(m.type==='audio'&&!m.url)return;
     if(m.type==='video'&&!m.url&&!m.youtubeId){
-      if(m.action==='stop'){cleanMirror.stop();showIdle('Aguardando transmissão…')}
+      if(m.action==='stop'){cleanMirror.stop();showIdle(PALCO_I18N.t('t_waiting_media'))}
       return;
     }
     if(['video','audio','projection','timer','clock','idle','bgPalco','stop-all'].includes(m.type))cleanMirror.stop();
@@ -3396,6 +3764,10 @@ function handle(m){
         t.style.display='none';$('text').style.display='';}}
       const bgEl=$('bg');
       bgEl.onerror=()=>{bgEl.onerror=null;bgEl.src='bg-fallback.png'};
+      // Quadro de slide/imagem (data:image do app): conteúdo inteiro, com o zoom do operador.
+      const isFrameSlide=m.frameSlide===true||(typeof m.background==='string'&&m.background.indexOf('data:image/')===0);
+      bgEl.classList.toggle('frame-slide',isFrameSlide);
+      applyFrameView(isFrameSlide?m.view:null,0);
       if(m.background){bgEl.src=proxyUrl(m.background);bgEl.style.opacity='';document.body.style.background=''}
       // Sem bg na mensagem: usa o BG configurado no app (bgPalco — enviado
       // ao ligar o palco). Só se NÃO houver bg configurado cai no fallback
@@ -3409,7 +3781,9 @@ function handle(m){
       // Slide/PDF/PPT (text vazio) é mídia visual pura: sem véu de leitura,
       // preserva a tonalidade original do canvas do operador.
       $('veil').style.display=m.text?'':'none';
+      const projectionGhost=projectionGhostOf(m,$('text'));
       $('text').innerHTML=m.text||'';
+      projectionEnter(m,[$('text'),$('footer')],projectionGhost);
       $('text').classList.toggle('cover-on',m.isCover===true);
       $('text').classList.toggle('title-box-on',m.isCover===true&&m.titleTextBox===true);
       // F3.3o: fontSize/fontWeight dinâmicos (settings do operador).
@@ -3539,14 +3913,14 @@ function handle(m){
             const apply=()=>{try{a.currentTime=m.positionMs/1000}catch(e){}};
             if(a.readyState>=1)apply();else a.addEventListener('loadedmetadata',apply,{once:true});
           }
-          a.onended=()=>{hideNp();showIdle('Aguardando transmissão…')};
+          a.onended=()=>{hideNp();showIdle(PALCO_I18N.t('t_waiting_media'))};
           // Áudio "desconhecido" (sem metadados): now-playing padrão do
           // Palco — sem nome de arquivo, com a animação eq indicando que
           // há algo tocando. Mesmo visual do "só áudio" do app.
           if(m.title){
             showNp(m.title, m.subtitle||'', m.cover||'');
           }else{
-            showNp('Reproduzindo áudio', m.subtitle||'', m.cover||'');
+            showNp(PALCO_I18N.t('t_playing_audio'), m.subtitle||'', m.cover||'');
           }
           $('bg').src=m.background?proxyUrl(m.background):'bg-fallback.png';
         }
@@ -3561,21 +3935,21 @@ function handle(m){
         // Now-playing tardio APENAS se não há projeção ativa na TV.
         // Hino da liturgia = projection (letra) + audio juntos: o np não
         // pode cobrir a letra projetada (caso real: hino mostrava
-        // 'Reproduzindo áudio' em vez da letra).
+        // PALCO_I18N.t('t_playing_audio') em vez da letra).
         const np=$('np');
         const textEl=$('text');
         const hasProjection=textEl&&textEl.innerHTML&&textEl.innerHTML.trim()!==''&&np.style.display==='none';
         if(np.style.display==='none'&&!hasProjection){
-          showNp(m.title||'Reproduzindo áudio', m.subtitle||'', m.cover||'');
+          showNp(m.title||PALCO_I18N.t('t_playing_audio'), m.subtitle||'', m.cover||'');
           if(!m.background)$('bg').src='bg-fallback.png';
         }
         if(a.paused){dlog('PLAY src='+(a.src||'').slice(0,60));playWithFallback()}
-        else dlog('PLAY ignorado — já tocando');
+        else dlog('PLAY_IGNORED_ALREADY_PLAYING');
       }
       if(m.action==='pause'&&!a.paused)a.pause();
       if(m.action==='stop'){
         if(!window.__videoAudioActive){
-          a.pause();a.currentTime=0;showIdle('Aguardando transmissão…')}}
+          a.pause();a.currentTime=0;showIdle(PALCO_I18N.t('t_waiting_media'))}}
       if(m.action==='seek'){
         const target=(m.position||m.positionMs/1000||0);
         // só corrige se o desvio for perceptível — micro-sync causa stutter
@@ -3597,8 +3971,8 @@ function handle(m){
         const av=$('audio');const next=proxyUrl(m.url);
         window.__videoAudioActive=true;
         if(av.src!==next){av.src=next;
-          av.onended=()=>{hideNp();showIdle('Aguardando transmissão…')};
-          showNp(m.title||'Reproduzindo áudio', m.subtitle||'', m.cover||'');
+          av.onended=()=>{hideNp();showIdle(PALCO_I18N.t('t_waiting_media'))};
+          showNp(m.title||PALCO_I18N.t('t_playing_audio'), m.subtitle||'', m.cover||'');
           $('bg').src=m.background?proxyUrl(m.background):'bg-fallback.png';}
         if(m.action!=='pause'&&m.action!=='stop'&&av.paused)playWithFallback();
         if(m.action==='pause'&&!av.paused)av.pause();
@@ -3613,7 +3987,7 @@ function handle(m){
       {const a=$('audio');
         if(a&&a.src&&!(m.action==='stop'&&!m.url)){a.pause();a.removeAttribute('src');a.load()}}
       if(m.action==='stop'){v.pause();v.removeAttribute('src');v.style.display='none';
-        v.load();showIdle('Aguardando transmissão…');
+        v.load();showIdle(PALCO_I18N.t('t_waiting_media'));
         sendEvent({v:2,type:'ended',media:'video'});break}
       if(m.url){v.src=proxyUrl(m.url);v.style.display='';
         // Sync inicial (padrão F3.3g do áudio): positionMs aplicado antes
@@ -3623,7 +3997,7 @@ function handle(m){
           if(v.readyState>=1)apply();else v.addEventListener('loadedmetadata',apply,{once:true});
         }
         v.onended=()=>{v.style.display='none';v.removeAttribute('src');v.load();
-          showIdle('Aguardando transmissão…');
+          showIdle(PALCO_I18N.t('t_waiting_media'));
           sendEvent({v:2,type:'ended',media:'video'})}}
       if(m.action==='seek'){
         const target=(m.position||((m.positionMs||0)/1000)||0);
@@ -3677,7 +4051,7 @@ function handle(m){
       t._iv=setInterval(()=>{rem-=1000;elapsed+=1000;render();
         if(mode!=='chrono'&&rem<=0){clearInterval(t._iv)}},1000);
       break}
-    case 'idle':showIdle(m.msg||'Aguardando transmissão…');break;
+    case 'idle':lastProjectionKey='';showIdle(m.msg||PALCO_I18N.t('t_waiting_media'));break;
     // F3.3x: sender informa IP DA TV (visto pelo socket) + SLOT onde ela
     // caiu — identificação visível pro operador conferir com o app.
     case 'youare':{
@@ -3687,7 +4061,7 @@ function handle(m){
         if(isMain)who='Principal (espelho)';
         var el=document.getElementById('idleConn');
         if(el&&document.getElementById('idle')&&!document.getElementById('idle').classList.contains('hidden'))
-          el.textContent=who+' · TV '+m.ip+' · conectado · vermelha = digitar IP';
+          el.textContent=PALCO_I18N.fmt('t_tv_connected',{a:who,b:m.ip});
         try{
           localStorage.setItem('palcoSelfIp',m.ip);
           localStorage.setItem('palcoSlotLabel',who);

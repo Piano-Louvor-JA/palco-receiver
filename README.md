@@ -14,6 +14,7 @@ instalação:
 | [`webos/`](webos/README.md) | LG webOS 4.x+ | IPK (`ares-package`) | Dev Mode + `ares-install` — ver [webos/README.md](webos/README.md) |
 | [`tizen/`](tizen/README.md) | Samsung Tizen 4.0+ | WGT (zip + config.xml) | Dev Mode Samsung + `sdb install` — ver [tizen/README.md](tizen/README.md) |
 | [`androidtv/`](androidtv/README.md) | Android TV / box / Fire TV | APK Flutter (WebView) | `adb install` / Play Store — ver [androidtv/README.md](androidtv/README.md) |
+| [`roku/`](roku/README.md) | Roku OS 16.0+ | ZIP sideload (`npm run package`) | Developer Mode + sideload — ver [roku/README.md](roku/README.md) |
 
 Todas compartilham o **MESMO receiver** (HTML/JS único) — paridade total de
 features, validada no CI: scan automático do sender, IP/porta manual
@@ -51,10 +52,43 @@ Validação sem TV física: **Remote Test Lab** (TVs reais na nuvem, grátis).
 Escala: **TV Seller Office** (nota: Public Seller só distribui nos EUA;
 Brasil exige Partner Seller).
 
+## Identificação das requisições à API
+
+O receiver faz chamadas HTTP próprias ao relay (`/v1/palco/sessions` e busca
+do token da sessão). Essas chamadas enviam `X-Client-Platform`
+(`palco-webos`, `palco-tizen`, `palco-androidtv` ou `palco-browser`) e
+`X-Client-Version`. Quando configurado, `X-Partner-Key` identifica o parceiro
+Palco, independentemente do cliente que controla a sessão.
+
+Crie chaves próprias do Palco em cada banco da API e cadastre os secrets
+`PARTNER_KEY_STG` e `PARTNER_KEY_PROD` neste repositório. Não reutilize as
+chaves do desktop, APK operador ou web. Os jobs de empacotamento e publicação
+executam `node scripts/configure-partner-key.mjs` antes de gerar os artefatos.
+O mesmo comando pode ser executado localmente com essas variáveis de ambiente;
+sem elas, o receiver mantém o acesso sem chave de parceiro.
+
+A configuração é incorporada no HTML, sem arquivo externo adicional. O script
+lê a versão de `webos/appinfo.json`, sincroniza a configuração nos quatro
+receivers e não imprime os valores das chaves. Ambas as chaves podem estar no
+pacote: a URL efetiva escolhe staging ou produção. Somente as APIs HTTPS
+`api-stg.pianolouvorja.com.br` e `api.pianolouvorja.com.br`, além da API local
+em `localhost`/`127.0.0.1`, recebem a chave configurada nas rotas `/v1/palco`.
+Upstream, CDN, Google/Firebase, chamadas LAN de `/status` e requisições
+`no-cors` não recebem essa chave. A configuração não altera a URL do relay
+selecionada pelo launcher ou por `?api=`.
+Se o launcher usar o relay upstream `api.louvorja.com.br`, não será enviada
+chave de parceiro. Para identificação na API Piano, a URL do relay deve
+apontar para a API Piano do ambiente correspondente.
+
+O token de parceiro é um identificador distribuído e revogável. Ele não
+substitui o token da sessão do palco. O WebSocket mantém seu mecanismo atual
+de autenticação e não recebe a chave de parceiro na URL. Uma chave de parceiro
+desconhecida ou revogada enviada à API causa 401 nas chamadas HTTP.
+
 ## Releases
 
 IPKs e APKs publicados em
-https://github.com/pianolouvorja/palco-receiver/releases
+https://github.com/Piano-Louvor-JA/palco-receiver/releases
 (repo privado: asset URL exige token — para download direto da TV use Dev
 Mode/scp, ou aguarde publicação em loja).
 
@@ -79,15 +113,16 @@ tag, o canal de updates publica sozinho:
 5. O workflow `publish-update.yml` dispara na tag:
    - valida semver + sanidade (tag == appinfo == HTML)
    - publica HTML+assets+`manifest.json` na `gh-pages` do repo público
-     [`pianolouvorja/palco-updates`](https://github.com/pianolouvorja/palco-updates)
+     [`Piano-Louvor-JA/palco-updates`](https://github.com/Piano-Louvor-JA/palco-updates)
      (repo de artefato — **só o CI escreve**, branches protegidas)
    - espera o GitHub Pages propagar
-6. **TVs na 0.1.43+** buscam o canal no boot (+4s) e de hora em hora; se
-   a versão remota for maior e a TV estiver no idle (sem mídia), trocam
-   sozinhas. TVs ≤0.1.42 **não têm updater** — último install manual.
+6. O updater automático só existiu nas TVs 0.1.43 e 0.1.44, e elas consultam
+   o endereço antigo `pianolouvorja.github.io`, que deixou de responder com a
+   troca de nome da organização. As demais versões **não têm updater**: a
+   atualização é pelo pacote da loja/release ou abrindo o canal no navegador.
 
 Canal público (serve receiver em qualquer browser, zero install):
-`https://pianolouvorja.github.io/palco-updates/manifest.json`
+`https://piano-louvor-ja.github.io/palco-updates/manifest.json`
 
 Secrets necessários (já configurados): `PALCO_UPDATES_TOKEN` (PAT com
 escopo `repo`) no palco-receiver.

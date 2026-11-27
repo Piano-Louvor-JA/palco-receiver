@@ -1,8 +1,7 @@
 name: Publish update canal
 
-# Publica o receiver + manifest no canal público (pianolouvorja/palco-updates,
+# Publica o receiver + manifest no canal público (Piano-Louvor-JA/palco-updates,
 # servido por GitHub Pages) quando uma tag v* sai da main.
-# As TVs com updater (>= 0.1.43) buscam esse canal e se atualizam sozinhas.
 # Repo de artefato: nenhum humano pusha direto — só este job (flow da org:
 # feat -> staging -> main -> tag -> canal).
 
@@ -44,10 +43,16 @@ jobs:
             exit 1
           fi
 
+      - name: Configurar identidade de parceiro do Palco
+        env:
+          PARTNER_KEY_STG: ${{ secrets.PARTNER_KEY_STG }}
+          PARTNER_KEY_PROD: ${{ secrets.PARTNER_KEY_PROD }}
+        run: node scripts/configure-partner-key.mjs
+
       - name: Checkout palco-updates gh-pages
         uses: actions/checkout@v7
         with:
-          repository: pianolouvorja/palco-updates
+          repository: Piano-Louvor-JA/palco-updates
           ref: gh-pages
           token: ${{ secrets.PALCO_UPDATES_TOKEN }}
           path: palco-updates
@@ -58,7 +63,7 @@ jobs:
           cd palco-updates
           mkdir -p "$V"
           cp ../webos/index.html "$V/index.html"
-          for f in network-mirror.js bg-fallback.png splash.jpg splash-palco.jpg splash-palco.png logo-piano-louvorja.png logo-louvor-ja.svg; do
+          for f in i18n.js network-mirror.js bg-fallback.png splash.jpg splash-palco.jpg splash-palco.png logo-piano-louvorja.png logo-louvor-ja.svg; do
             if [ -f "../webos/$f" ]; then cp "../webos/$f" "$V/"; fi
           done
           printf '{\n  "version": "%s",\n  "html": "%s/index.html"\n}\n' "$V" "$V" > manifest.json
@@ -77,7 +82,7 @@ jobs:
           V="${GITHUB_REF_NAME#v}"
           sleep 30
           for i in 1 2 3 4 5 6; do
-            CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://pianolouvorja.github.io/palco-updates/$V/index.html")
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://piano-louvor-ja.github.io/palco-updates/$V/index.html")
             echo "tentativa $i: HTTP $CODE"
             if [ "$CODE" = "200" ]; then exit 0; fi
             sleep 30
